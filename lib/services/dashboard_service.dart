@@ -6,11 +6,34 @@ import '../models/dashboard_model.dart';
 class DashboardService {
   final ApiClient _apiClient = ApiClient();
 
-  Future<DashboardSummaryModel> getSummaryStats() async {
+  Future<DashboardSummaryModel> getSummaryStats({String? startDate, String? endDate}) async {
     try {
-      final response = await _apiClient.get(ApiConfig.endpointDashboardSummary);
+      final query = <String, dynamic>{};
+      if (startDate != null && endDate != null) {
+        query['startDate'] = startDate;
+        query['endDate'] = endDate;
+      }
+      final response = await _apiClient.get(ApiConfig.endpointDashboardSummary, queryParameters: query);
       if (response.statusCode == 200 && response.data != null) {
         final summaryMap = response.data['data']?['summary'] ?? response.data['summary'] ?? {};
+        
+        // Fetch REAL tamu counts directly from DB so it matches the List Screen perfectly (ALL TIME or specific date)
+        int realTamu = summaryMap['tamuHariIni'] ?? 0;
+        try {
+          final visitRes = await _apiClient.post(
+            ApiConfig.endpointVisitData, 
+            data: {
+              'limit': 1, 
+              if (startDate != null) 'TanggalMulai': startDate, 
+              if (endDate != null) 'TanggalSelesai': endDate
+            }
+          );
+          if (visitRes.statusCode == 200 && visitRes.data != null) {
+            realTamu = visitRes.data['data']?['total'] ?? realTamu;
+          }
+        } catch (_) {}
+
+        summaryMap['tamuHariIni'] = realTamu;
         return DashboardSummaryModel.fromJson(summaryMap);
       }
     } catch (e) {

@@ -12,7 +12,7 @@ class AppTheme {
   static const Color primaryLight = primaryBlueLight;
   static const Color secondaryColor = primaryBlueDark;
 
-  static const Color successColor = Color(0xFF0F9D58); // emerald-success
+  static const Color successColor = Color(0xFF0F9D58); // emerald-success 
   static const Color warningColor = Color(0xFFF5A623); // amber-warning
   static const Color dangerColor = Color(0xFFE53935); // red-danger
   static const Color infoColor = Color(0xFF1E4FD6); // sama dengan primary

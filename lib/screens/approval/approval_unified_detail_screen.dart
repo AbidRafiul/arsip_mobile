@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../config/app_theme.dart';
 import '../../models/unified_approval_model.dart';
 import '../../providers/unified_approval_provider.dart';
+import '../../core/utils/date_formatter.dart';
 import '../common/document_preview_screen.dart';
 
 class ApprovalUnifiedDetailScreen extends StatefulWidget {
@@ -224,7 +225,7 @@ class _ApprovalUnifiedDetailScreenState extends State<ApprovalUnifiedDetailScree
                   children: [
                     _buildDetailRow('Status Persetujuan', item.status.toUpperCase(), isBadge: true),
                     const Divider(),
-                    _buildDetailRow('Tanggal Pengajuan', item.date),
+                    _buildDetailRow('Tanggal Pengajuan', DateFormatter.formatIndonesianDateTime(item.date)),
                     const Divider(),
                     _buildDetailRow('Diusulkan / Dibuat Oleh', item.requesterName ?? '-'),
                     const Divider(),
@@ -239,10 +240,10 @@ class _ApprovalUnifiedDetailScreenState extends State<ApprovalUnifiedDetailScree
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.primaryColor,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
                         ),
-                        icon: const Icon(Icons.picture_as_pdf_outlined, color: Colors.white),
-                        label: const Text('PRINJAU BERKAS DOKUMEN', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        icon: const Icon(Icons.picture_as_pdf_outlined, color: Colors.white, size: 20),
+                        label: const Text('PRINJAU BERKAS DOKUMEN', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
                         onPressed: () => _openDocumentPreview(item),
                       ),
                     ),
@@ -260,11 +261,11 @@ class _ApprovalUnifiedDetailScreenState extends State<ApprovalUnifiedDetailScree
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.dangerColor,
                       side: BorderSide(color: AppTheme.dangerColor),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     onPressed: () => _showConfirmDialog(isApprove: false),
-                    icon: const Icon(Icons.cancel_outlined),
-                    label: const Text('TOLAK'),
+                    icon: const Icon(Icons.cancel_outlined, size: 20),
+                    label: const Text('TOLAK', style: TextStyle(fontSize: 13)),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -272,11 +273,11 @@ class _ApprovalUnifiedDetailScreenState extends State<ApprovalUnifiedDetailScree
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.successColor,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     onPressed: () => _showConfirmDialog(isApprove: true),
-                    icon: const Icon(Icons.check_circle_outline, color: Colors.white),
-                    label: const Text('SETUJUI', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    icon: const Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
+                    label: const Text('SETUJUI', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
                   ),
                 ),
               ],
@@ -319,7 +320,7 @@ class _ApprovalUnifiedDetailScreenState extends State<ApprovalUnifiedDetailScree
                 : Text(
                     value,
                     textAlign: TextAlign.end,
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
                   ),
           ),
         ],

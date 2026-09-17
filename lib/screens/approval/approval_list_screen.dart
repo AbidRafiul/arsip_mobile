@@ -3,8 +3,10 @@ import 'package:provider/provider.dart';
 import '../../config/app_theme.dart';
 import '../../config/app_widgets.dart';
 import '../../models/unified_approval_model.dart';
+import '../../models/disposition_model.dart';
 import '../../providers/unified_approval_provider.dart';
 import 'approval_unified_detail_screen.dart';
+import '../disposition/disposition_detail_screen.dart';
 
 class ApprovalListScreen extends StatefulWidget {
   const ApprovalListScreen({Key? key}) : super(key: key);
@@ -180,10 +182,20 @@ class _ApprovalListScreenState extends State<ApprovalListScreen> {
     final categoryColor = _getCategoryColor(item.category);
 
     return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => ApprovalUnifiedDetailScreen(item: item)),
-      ),
+      onTap: () {
+        if (item.category == ApprovalCategory.disposition) {
+          final dispositionItem = DispositionItemModel.fromJson(item.rawData);
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => DispositionDetailScreen(item: dispositionItem)),
+          );
+        } else {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => ApprovalUnifiedDetailScreen(item: item)),
+          );
+        }
+      },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
@@ -235,7 +247,7 @@ class _ApprovalListScreenState extends State<ApprovalListScreen> {
                             ),
                           ),
                           const Spacer(),
-                          StatusBadge.fromString('Menunggu'),
+                          StatusBadge.fromString(item.status),
                         ],
                       ),
                       const SizedBox(height: 8),

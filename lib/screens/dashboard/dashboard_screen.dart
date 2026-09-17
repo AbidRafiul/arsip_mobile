@@ -7,8 +7,15 @@ import '../../providers/multi_dashboard_provider.dart';
 import '../approval/approval_list_screen.dart';
 import '../disposition/disposition_list_screen.dart';
 import '../profile/profile_screen.dart';
+import '../notification/notification_screen.dart';
+import '../arsip/arsip_list_screen.dart';
+import '../buku_tamu/buku_tamu_list_screen.dart';
 
 import '../../providers/dashboard_provider.dart';
+import '../../models/unified_approval_model.dart';
+import '../../providers/unified_approval_provider.dart';
+import '../../providers/branch_provider.dart';
+import '../../models/branch_model.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -82,23 +89,36 @@ class _MultiDashboardHomeView extends StatefulWidget {
 class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  
+  String _selectedPeriodLabel = 'Semua Waktu';
+  String? _startDate = '2000-01-01';
+  String? _endDate = '2100-12-31';
 
   @override
   void initState() {
     super.initState();
+    
+    // Fetch branches if superadmin
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      if (auth.currentUser?.role?.toUpperCase() == 'SUPERADMIN') {
+        Provider.of<BranchProvider>(context, listen: false).fetchBranches();
+      }
+    });
+
     _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
         Provider.of<MultiDashboardProvider>(context, listen: false)
-            .setSelectedModuleIndex(_tabController.index);
+            .setSelectedModuleIndex(_tabController.index, startDate: _startDate, endDate: _endDate);
       }
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<MultiDashboardProvider>(context, listen: false)
-          .fetchDashboardData();
+          .fetchDashboardData(startDate: _startDate, endDate: _endDate);
       Provider.of<DashboardProvider>(context, listen: false)
-          .fetchDashboardData();
+          .fetchDashboardData(startDate: _startDate, endDate: _endDate);
     });
   }
 
@@ -110,10 +130,64 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
 
   Future<void> _refreshAllData() async {
     await Future.wait([
-      Provider.of<MultiDashboardProvider>(context, listen: false).refreshAll(),
+      Provider.of<MultiDashboardProvider>(context, listen: false).refreshAll(startDate: _startDate, endDate: _endDate),
       Provider.of<DashboardProvider>(context, listen: false)
-          .fetchDashboardData(),
+          .fetchDashboardData(startDate: _startDate, endDate: _endDate),
     ]);
+  }
+
+  void _showFilterBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text('Pilih Periode', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+              _buildFilterOption('Hari Ini', _getToday(), _getToday()),
+              _buildFilterOption('Kemarin', _getYesterday(), _getYesterday()),
+              _buildFilterOption('Minggu Ini', _getStartOfWeek(), _getToday()),
+              _buildFilterOption('Bulan Ini', _getStartOfMonth(), _getToday()),
+              _buildFilterOption('Semua Waktu', '2000-01-01', '2100-12-31'),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String _getToday() => DateTime.now().toIso8601String().substring(0, 10);
+  String _getYesterday() => DateTime.now().subtract(const Duration(days: 1)).toIso8601String().substring(0, 10);
+  String _getStartOfWeek() {
+    final now = DateTime.now();
+    return now.subtract(Duration(days: now.weekday - 1)).toIso8601String().substring(0, 10);
+  }
+  String _getStartOfMonth() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, 1).toIso8601String().substring(0, 10);
+  }
+
+  Widget _buildFilterOption(String label, String? start, String? end) {
+    return ListTile(
+      title: Text(label),
+      trailing: _selectedPeriodLabel == label ? const Icon(Icons.check, color: AppTheme.primaryBlue) : null,
+      onTap: () {
+        Navigator.pop(context);
+        setState(() {
+          _selectedPeriodLabel = label;
+          _startDate = start;
+          _endDate = end;
+        });
+        _refreshAllData();
+      },
+    );
   }
 
   @override
@@ -136,21 +210,51 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
                   .titleLarge
                   ?.copyWith(fontSize: 17),
             ),
-            Text(
-              user?.role ?? 'Approver',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppTheme.textSecondary,
-                    fontSize: 12,
+            Row(
+              children: [
+                Text(
+                  user?.role ?? 'Approver',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppTheme.textSecondary,
+                        fontSize: 12,
+                      ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryBlue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
                   ),
-            ),
+                  child: Text(
+                    _selectedPeriodLabel,
+                    style: const TextStyle(fontSize: 10, color: AppTheme.primaryBlue, fontWeight: FontWeight.bold),
+                  ),
+                )
+              ],
+            )
           ],
         ),
         actions: [
+          if (user?.role?.toUpperCase() == 'SUPERADMIN')
+            IconButton(
+              icon: const Icon(Icons.location_city_rounded),
+              onPressed: () => _showBranchSwitcherBottomSheet(context),
+            ),
+          IconButton(
+            icon: const Icon(Icons.filter_list_rounded),
+            onPressed: _showFilterBottomSheet,
+          ),
           Stack(
             children: [
               IconButton(
                 icon: const Icon(Icons.notifications_outlined, size: 26),
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const NotificationScreen()),
+                  );
+                },
               ),
               // Badge notifikasi
               Positioned(
@@ -288,22 +392,54 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
                   title: 'Arsip Aktif',
                   value: '${sysSummary?.arsipAktif ?? 0}',
                   icon: Icons.folder_open_rounded,
-                  color: AppTheme.primaryBlue),
+                  color: AppTheme.primaryBlue,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ArsipListScreen(filter: 'aktif'),
+                      ),
+                    );
+                  }),
               StatCard(
-                  title: 'Tamu Hari Ini',
+                  title: _selectedPeriodLabel == 'Hari Ini' ? 'Tamu Hari Ini' : 'Total Tamu',
                   value: '${sysSummary?.tamuHariIni ?? 0}',
                   icon: Icons.badge_outlined,
-                  color: AppTheme.successColor),
+                  color: AppTheme.successColor,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const BukuTamuListScreen(),
+                      ),
+                    );
+                  }),
               StatCard(
                   title: 'Surat Disposisi',
                   value: '${sysSummary?.menungguDisposisi ?? 0}',
                   icon: Icons.inbox_rounded,
-                  color: AppTheme.warningColor),
+                  color: AppTheme.warningColor,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const DispositionListScreen(),
+                      ),
+                    );
+                  }),
               StatCard(
                   title: 'Retensi Expired',
                   value: '${sysSummary?.retensiExpired ?? 0}',
                   icon: Icons.warning_amber_rounded,
-                  color: AppTheme.dangerColor),
+                  color: AppTheme.dangerColor,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ArsipListScreen(filter: 'expired'),
+                      ),
+                    );
+                  }),
             ],
           ),
           const SizedBox(height: 24),
@@ -322,32 +458,56 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
                   title: 'Surat Keluar',
                   value: '${stats.pendingSuratKeluar}',
                   icon: Icons.send_rounded,
-                  color: AppTheme.primaryBlue),
+                  color: AppTheme.primaryBlue,
+                  onTap: () {
+                    Provider.of<UnifiedApprovalProvider>(context, listen: false).setSelectedCategory(ApprovalCategory.outgoingLetter);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ApprovalListScreen()));
+                  }),
               StatCard(
                   title: 'Peminjaman Arsip',
                   value: '${stats.pendingPeminjamanArsip}',
                   icon: Icons.folder_shared_rounded,
-                  color: AppTheme.warningColor),
+                  color: AppTheme.warningColor,
+                  onTap: () {
+                    Provider.of<UnifiedApprovalProvider>(context, listen: false).setSelectedCategory(ApprovalCategory.archiveLoan);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ApprovalListScreen()));
+                  }),
               StatCard(
                   title: 'Versi Dokumen',
                   value: '${stats.pendingVersiDokumen}',
                   icon: Icons.history_edu_rounded,
-                  color: AppTheme.successColor),
+                  color: AppTheme.successColor,
+                  onTap: () {
+                    Provider.of<UnifiedApprovalProvider>(context, listen: false).setSelectedCategory(ApprovalCategory.documentVersion);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ApprovalListScreen()));
+                  }),
               StatCard(
                   title: 'Kunjungan Tamu',
                   value: '${stats.pendingBukuTamu}',
                   icon: Icons.people_alt_rounded,
-                  color: const Color(0xFF3B82F6)),
+                  color: const Color(0xFF3B82F6),
+                  onTap: () {
+                    Provider.of<UnifiedApprovalProvider>(context, listen: false).setSelectedCategory(ApprovalCategory.guestVisit);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ApprovalListScreen()));
+                  }),
               StatCard(
                   title: 'Pemusnahan JRA',
                   value: '${stats.pendingPemusnahanArsip}',
                   icon: Icons.delete_sweep_rounded,
-                  color: AppTheme.dangerColor),
+                  color: AppTheme.dangerColor,
+                  onTap: () {
+                    Provider.of<UnifiedApprovalProvider>(context, listen: false).setSelectedCategory(ApprovalCategory.destructionProposal);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ApprovalListScreen()));
+                  }),
               StatCard(
                   title: 'Disposisi Aktif',
                   value: '${stats.totalDisposisiAktif}',
                   icon: Icons.move_to_inbox_rounded,
-                  color: const Color(0xFF7C3AED)),
+                  color: const Color(0xFF7C3AED),
+                  onTap: () {
+                    Provider.of<UnifiedApprovalProvider>(context, listen: false).setSelectedCategory(ApprovalCategory.disposition);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ApprovalListScreen()));
+                  }),
             ],
           ),
         ],
@@ -475,7 +635,7 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
             childAspectRatio: 1.45,
             children: [
               StatCard(
-                  title: 'Kunjungan Hari Ini',
+                  title: _selectedPeriodLabel == 'Hari Ini' ? 'Kunjungan Hari Ini' : 'Total Kunjungan',
                   value: '${stats.tamuHariIni}',
                   icon: Icons.people_rounded,
                   color: AppTheme.primaryBlue),
@@ -498,6 +658,91 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
           ),
         ],
       ),
+    );
+  }
+
+  void _showBranchSwitcherBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext ctx) {
+        return Consumer<BranchProvider>(
+          builder: (context, branchProv, _) {
+            if (branchProv.isLoading) {
+              return const SizedBox(
+                height: 200,
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+
+            return Container(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    child: Text(
+                      'Pindah Kantor',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                  ),
+                  const Divider(),
+                  ListTile(
+                    leading: const Icon(Icons.business_rounded, color: AppTheme.primaryBlue),
+                    title: const Text('Semua Cabang', style: TextStyle(fontWeight: FontWeight.bold)),
+                    trailing: branchProv.selectedBranch == null
+                        ? const Icon(Icons.check_circle, color: AppTheme.primaryBlue)
+                        : null,
+                    onTap: () {
+                      branchProv.selectBranch(null);
+                      Navigator.pop(context);
+                      _refreshAllData();
+                    },
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: branchProv.branches.length,
+                      itemBuilder: (context, index) {
+                        final b = branchProv.branches[index];
+                        final isSelected = branchProv.selectedBranch?.id == b.id;
+                        return ListTile(
+                          leading: Icon(
+                            Icons.location_on_outlined,
+                            color: isSelected ? AppTheme.primaryBlue : AppTheme.textSecondary,
+                          ),
+                          title: Text(
+                            b.namaCabang,
+                            style: TextStyle(
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              color: isSelected ? AppTheme.primaryBlue : AppTheme.textPrimary,
+                            ),
+                          ),
+                          trailing: isSelected
+                              ? const Icon(Icons.check_circle, color: AppTheme.primaryBlue)
+                              : null,
+                          onTap: () {
+                            branchProv.selectBranch(b);
+                            Navigator.pop(context);
+                            _refreshAllData();
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

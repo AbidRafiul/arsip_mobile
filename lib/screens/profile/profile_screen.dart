@@ -5,6 +5,8 @@ import '../../config/api_config.dart';
 import '../../config/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../auth/login_screen.dart';
+import 'change_password_screen.dart';
+import 'notification_settings_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -130,13 +132,23 @@ class ProfileScreen extends StatelessWidget {
                   _menuTile(
                     icon: Icons.lock_outline_rounded,
                     label: 'Ubah Password',
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
+                      );
+                    },
                   ),
                   _divider(),
                   _menuTile(
                     icon: Icons.notifications_outlined,
                     label: 'Pengaturan Notifikasi',
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const NotificationSettingsScreen()),
+                      );
+                    },
                   ),
                   _divider(),
                   _menuTile(

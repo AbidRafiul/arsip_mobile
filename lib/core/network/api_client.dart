@@ -42,7 +42,6 @@ class ApiClient {
           final jwtCredential = await SecureStorageService.getJwtCredential();
           final userData = await SecureStorageService.getUserData();
           final username = userData['username'];
-          final branchId = userData['branchId'];
 
           final tokenToUse = (jwtCredential != null && jwtCredential.isNotEmpty)
               ? jwtCredential
@@ -58,8 +57,15 @@ class ApiClient {
 
           options.headers[ApiConfig.headerTimestamp] = DateTime.now().toIso8601String();
 
-          if (branchId != null && branchId.isNotEmpty) {
-            options.headers[ApiConfig.headerFilterCabang] = branchId;
+          // Global Branch Switcher override
+          if (ApiConfig.selectedBranchId != null) {
+            options.headers[ApiConfig.headerFilterCabang] = ApiConfig.selectedBranchId.toString();
+            // Minta backend untuk tidak me-load data anak cabang (recursive) agar klop dengan Dashboard Web
+            options.headers['x-exact-cabang'] = 'true';
+          } else {
+            // Remove it if null so Superadmin can see all branches
+            options.headers.remove(ApiConfig.headerFilterCabang);
+            options.headers.remove('x-exact-cabang');
           }
 
           return handler.next(options);

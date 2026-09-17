@@ -23,13 +23,13 @@ class MultiDashboardProvider with ChangeNotifier {
   ArsipDashboardStats get arsipStats => _arsipStats;
   BukuTamuDashboardStats get bukuTamuStats => _bukuTamuStats;
 
-  void setSelectedModuleIndex(int index) {
+  void setSelectedModuleIndex(int index, {String? startDate, String? endDate}) {
     _selectedModuleIndex = index;
     notifyListeners();
-    fetchDashboardData();
+    fetchDashboardData(startDate: startDate, endDate: endDate);
   }
 
-  Future<void> fetchDashboardData() async {
+  Future<void> fetchDashboardData({String? startDate, String? endDate}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -38,11 +38,11 @@ class MultiDashboardProvider with ChangeNotifier {
       if (_selectedModuleIndex == 0) {
         _executiveStats = await _service.getExecutiveStats();
       } else if (_selectedModuleIndex == 1) {
-        _correspondenceStats = await _service.getCorrespondenceStats();
+        _correspondenceStats = await _service.getCorrespondenceStats(startDate: startDate, endDate: endDate);
       } else if (_selectedModuleIndex == 2) {
-        _arsipStats = await _service.getArsipStats();
+        _arsipStats = await _service.getArsipStats(startDate: startDate, endDate: endDate);
       } else if (_selectedModuleIndex == 3) {
-        _bukuTamuStats = await _service.getBukuTamuStats();
+        _bukuTamuStats = await _service.getBukuTamuStats(startDate: startDate, endDate: endDate);
       }
     } catch (e) {
       _errorMessage = 'Gagal memuat statistik dashboard';
@@ -52,15 +52,15 @@ class MultiDashboardProvider with ChangeNotifier {
     }
   }
 
-  Future<void> refreshAll() async {
+  Future<void> refreshAll({String? startDate, String? endDate}) async {
     _isLoading = true;
     notifyListeners();
 
     try {
       _executiveStats = await _service.getExecutiveStats();
-      _correspondenceStats = await _service.getCorrespondenceStats();
-      _arsipStats = await _service.getArsipStats();
-      _bukuTamuStats = await _service.getBukuTamuStats();
+      _correspondenceStats = await _service.getCorrespondenceStats(startDate: startDate, endDate: endDate);
+      _arsipStats = await _service.getArsipStats(startDate: startDate, endDate: endDate);
+      _bukuTamuStats = await _service.getBukuTamuStats(startDate: startDate, endDate: endDate);
     } catch (_) {
     } finally {
       _isLoading = false;

@@ -7,6 +7,7 @@ import 'providers/approval_provider.dart';
 import 'providers/disposition_provider.dart';
 import 'providers/multi_dashboard_provider.dart';
 import 'providers/unified_approval_provider.dart';
+import 'providers/branch_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart';
 
@@ -23,6 +24,7 @@ class MobileApprovalApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => DispositionProvider()),
         ChangeNotifierProvider(create: (_) => MultiDashboardProvider()),
         ChangeNotifierProvider(create: (_) => UnifiedApprovalProvider()),
+        ChangeNotifierProvider(create: (_) => BranchProvider()),
       ],
       child: MaterialApp(
         title: 'Mobile Approval',

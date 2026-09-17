@@ -76,7 +76,7 @@ class MultiDashboardService {
     try {
       final resDisp = await _apiClient.post(
         ApiConfig.endpointDispositionData,
-        data: {'limit': 1},
+        data: {},
       );
       if (resDisp.statusCode == 200 && resDisp.data?['status'] == true) {
         activeDisposition = resDisp.data['pagination']?['total_data'] ?? 0;
@@ -94,9 +94,14 @@ class MultiDashboardService {
   }
 
   /// Ambil Statistik Modul Korespondensi
-  Future<CorrespondenceDashboardStats> getCorrespondenceStats() async {
+  Future<CorrespondenceDashboardStats> getCorrespondenceStats({String? startDate, String? endDate}) async {
     try {
-      final response = await _apiClient.get(ApiConfig.endpointOutgoingDashboardStats);
+      final query = <String, dynamic>{};
+      if (startDate != null && endDate != null) {
+        query['startDate'] = startDate;
+        query['endDate'] = endDate;
+      }
+      final response = await _apiClient.get(ApiConfig.endpointOutgoingDashboardStats, queryParameters: query);
       if (response.statusCode == 200 && response.data != null && response.data['status'] == true) {
         final summaryMap = response.data['data']?['summary'] ?? {};
         return CorrespondenceDashboardStats.fromJson(summaryMap);
@@ -107,12 +112,17 @@ class MultiDashboardService {
   }
 
   /// Ambil Statistik Modul Arsip Dokumen
-  Future<ArsipDashboardStats> getArsipStats() async {
+  Future<ArsipDashboardStats> getArsipStats({String? startDate, String? endDate}) async {
     try {
-      final response = await _apiClient.get(ApiConfig.endpointArsipDashboardStats);
+      final query = <String, dynamic>{};
+      if (startDate != null && endDate != null) {
+        query['startDate'] = startDate;
+        query['endDate'] = endDate;
+      }
+      final response = await _apiClient.get(ApiConfig.endpointArsipDashboardStats, queryParameters: query);
       if (response.statusCode == 200 && response.data != null) {
-        final summaryMap = response.data['data']?['summary'] ?? response.data['summary'] ?? response.data;
-        if (summaryMap is Map<String, dynamic>) {
+        final summaryMap = response.data['data']?['summary'] ?? response.data['summary'] ?? response.data['data'];
+        if (summaryMap != null) {
           return ArsipDashboardStats.fromJson(summaryMap);
         }
       }
@@ -122,17 +132,38 @@ class MultiDashboardService {
   }
 
   /// Ambil Statistik Modul Buku Tamu
-  Future<BukuTamuDashboardStats> getBukuTamuStats() async {
-    try {
-      final response = await _apiClient.get(ApiConfig.endpointBukuTamuMonitoring);
-      if (response.statusCode == 200 && response.data != null) {
-        final summaryMap = response.data['data'] ?? response.data['summary'] ?? response.data;
-        if (summaryMap is Map<String, dynamic>) {
-          return BukuTamuDashboardStats.fromJson(summaryMap);
-        }
-      }
-    } catch (_) {}
+  Future<BukuTamuDashboardStats> getBukuTamuStats({String? startDate, String? endDate}) async {
+    int total = 0;
+    int disetujui = 0;
+    int ditolak = 0;
+    int pending = 0;
 
-    return BukuTamuDashboardStats();
+    try {
+      // Get Total (semua status)
+      final resTotal = await _apiClient.post(ApiConfig.endpointVisitData, data: {'limit': 1, if (startDate != null) 'TanggalMulai': startDate, if (endDate != null) 'TanggalSelesai': endDate});
+      if (resTotal.statusCode == 200 && resTotal.data != null) total = resTotal.data['data']?['total'] ?? 0;
+
+      // Get Disetujui
+      final resDisetujui = await _apiClient.post(ApiConfig.endpointVisitData, data: {'ApprovalStatus': 'disetujui', 'limit': 1, if (startDate != null) 'TanggalMulai': startDate, if (endDate != null) 'TanggalSelesai': endDate});
+      if (resDisetujui.statusCode == 200 && resDisetujui.data != null) disetujui = resDisetujui.data['data']?['total'] ?? 0;
+
+      // Get Ditolak
+      final resDitolak = await _apiClient.post(ApiConfig.endpointVisitData, data: {'ApprovalStatus': 'ditolak', 'limit': 1, if (startDate != null) 'TanggalMulai': startDate, if (endDate != null) 'TanggalSelesai': endDate});
+      if (resDitolak.statusCode == 200 && resDitolak.data != null) ditolak = resDitolak.data['data']?['total'] ?? 0;
+
+      // Get Pending
+      final resPending = await _apiClient.post(ApiConfig.endpointVisitData, data: {'ApprovalStatus': 'pending', 'limit': 1, if (startDate != null) 'TanggalMulai': startDate, if (endDate != null) 'TanggalSelesai': endDate});
+      if (resPending.statusCode == 200 && resPending.data != null) pending = resPending.data['data']?['total'] ?? 0;
+
+    } catch (e) {
+      print('Error fetching real buku tamu stats: $e');
+    }
+
+    return BukuTamuDashboardStats(
+      tamuHariIni: total, // We map total to tamuHariIni so the UI displays it as Total Tamu
+      checkedIn: disetujui,
+      checkedOut: ditolak,
+      pendingApproval: pending,
+    );
   }
 }

@@ -143,4 +143,39 @@ class AuthService {
   Future<void> logout() async {
     await SecureStorageService.clearAll();
   }
+
+  Future<void> changePassword(String username, String oldPassword, String newPassword) async {
+    try {
+      final response = await _apiClient.post(
+        ApiConfig.endpointResetPassword,
+        data: {
+          'nama_pengguna': username,
+          'old_kata_sandi': oldPassword,
+          'new_kata_sandi': newPassword,
+        },
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = response.data;
+        if (data != null && (data['status'] == '00' || data['status'] == 200 || data['status'] == 'success' || data['status'] == true)) {
+          return; // Berhasil
+        } else {
+          final msg = data?['message'] ?? 'Gagal mengubah password.';
+          throw Exception(msg);
+        }
+      } else {
+        throw Exception(response.data?['message'] ?? 'Terjadi kesalahan sistem saat mengubah password');
+      }
+    } on DioException catch (dioErr) {
+      if (dioErr.response?.data != null && dioErr.response?.data is Map) {
+        final rawMsg = dioErr.response?.data['message']?.toString() ?? '';
+        if (rawMsg.isNotEmpty) {
+           throw Exception(rawMsg);
+        }
+      }
+      throw Exception(_formatDioError(dioErr));
+    } catch (e) {
+      rethrow;
+    }
+  }
 }

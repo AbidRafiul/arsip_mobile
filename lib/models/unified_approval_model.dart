@@ -92,7 +92,7 @@ class UnifiedApprovalItem {
 
   factory UnifiedApprovalItem.fromDisposition(Map<String, dynamic> json) {
     return UnifiedApprovalItem(
-      id: _parseInt(json['id_disposisi'] ?? json['id']),
+      id: _parseInt(json['disposisi_surat_id'] ?? json['id_disposisi'] ?? json['id']),
       category: ApprovalCategory.disposition,
       title: json['nomor_surat'] ?? 'Disposisi Surat Masuk',
       subtitle: 'Instruksi: ${json['instruksi'] ?? json['pesan_disposisi'] ?? '-'}',
