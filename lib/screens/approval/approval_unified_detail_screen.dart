@@ -24,12 +24,13 @@ class _ApprovalUnifiedDetailScreenState extends State<ApprovalUnifiedDetailScree
     super.dispose();
   }
 
-  void _openDocumentPreview(UnifiedApprovalItem item) {
+  void _openDocumentPreview(UnifiedApprovalItem item) async {
     final raw = item.rawData;
-    final filePath = raw['path_file'] ?? raw['file_path'] ?? raw['path_file_versi'] ?? raw['path'];
+    String? filePath = raw['path_file'] ?? raw['file_path'] ?? raw['path_file_versi'] ?? raw['path'];
     final fileName = raw['nama_file'] ?? raw['nama_dokumen'] ?? raw['kode_dokumen'] ?? '${item.category.code}_${item.id}.pdf';
 
     String endpoint = '/correspondence/outgoing-file-download';
+    String method = 'GET';
     Map<String, dynamic> params = {};
 
     if (item.category == ApprovalCategory.outgoingLetter) {
@@ -37,7 +38,36 @@ class _ApprovalUnifiedDetailScreenState extends State<ApprovalUnifiedDetailScree
       params['id_surat_keluar'] = item.id;
     } else if (item.category == ApprovalCategory.disposition) {
       endpoint = '/correspondence/incoming-file-download';
-      params['file_surat_masuk_id'] = raw['file_surat_masuk_id'] ?? raw['id_surat_masuk'] ?? item.id;
+      method = 'POST';
+      
+      int? fileId = raw['file_surat_masuk_id'] != null ? int.tryParse(raw['file_surat_masuk_id'].toString()) : null;
+      int? suratMasukId = raw['surat_masuk_id'] != null ? int.tryParse(raw['surat_masuk_id'].toString()) : 
+                          (raw['id_surat_masuk'] != null ? int.tryParse(raw['id_surat_masuk'].toString()) : null);
+      
+      if ((fileId == null || fileId == 0) && suratMasukId != null && suratMasukId != 0) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (c) => const Center(child: CircularProgressIndicator()),
+        );
+        try {
+          final apiClient = ApiClient();
+          final detailRes = await apiClient.post('/correspondence/incoming-letter-detail', data: {'surat_masuk_id': suratMasukId});
+          if (!mounted) return;
+          Navigator.pop(context); // close loading
+          if (detailRes.statusCode == 200 && detailRes.data != null) {
+            final files = detailRes.data['data']?['files'] as List?;
+            if (files != null && files.isNotEmpty) {
+              fileId = files.first['file_surat_masuk_id'] != null ? int.tryParse(files.first['file_surat_masuk_id'].toString()) : null;
+              filePath = files.first['path_file']?.toString() ?? filePath;
+            }
+          }
+        } catch (_) {
+          if (mounted) Navigator.pop(context); // close loading on error
+        }
+      }
+      
+      params['file_surat_masuk_id'] = fileId ?? suratMasukId ?? item.id;
       if (filePath != null) params['path_file'] = filePath;
     } else if (item.category == ApprovalCategory.documentVersion) {
       endpoint = '/arsip-dokumen/version/download';
@@ -57,6 +87,7 @@ class _ApprovalUnifiedDetailScreenState extends State<ApprovalUnifiedDetailScree
       }
     }
 
+    if (!mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -65,6 +96,7 @@ class _ApprovalUnifiedDetailScreenState extends State<ApprovalUnifiedDetailScree
           fileName: fileName.toString(),
           filePath: filePath?.toString(),
           endpoint: endpoint,
+          method: method,
           queryParameters: params,
         ),
       ),

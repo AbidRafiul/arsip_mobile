@@ -4,12 +4,12 @@ class ApiConfig {
   static String _resolveDefaultBaseUrl() {
     try {
       if (Platform.isAndroid) {
-        return 'http://192.168.1.38:8000/api/v1'; // Menggunakan IP Laptop agar bisa diakses dari HP fisik
+        return 'http://192.168.1.26:8000/api/v1'; // Menggunakan IP Laptop agar bisa diakses dari HP fisik
       } else if (Platform.isIOS || Platform.isMacOS) {
         return 'http://127.0.0.1:8000/api/v1';
       }
     } catch (_) {}
-    return 'http://192.168.1.38:8000/api/v1';
+    return 'http://192.168.1.26:8000/api/v1';
   }
 
   static String baseUrl = _resolveDefaultBaseUrl();

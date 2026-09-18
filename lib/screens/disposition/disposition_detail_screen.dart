@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/app_theme.dart';
+import '../../core/network/api_client.dart';
 import '../../core/utils/date_formatter.dart';
 import '../../models/disposition_model.dart';
 import '../../providers/disposition_provider.dart';
@@ -15,14 +16,52 @@ class DispositionDetailScreen extends StatefulWidget {
 }
 
 class _DispositionDetailScreenState extends State<DispositionDetailScreen> {
-  void _openDocumentPreview() {
+  void _openDocumentPreview() async {
+    final raw = widget.item.rawData;
+    String? filePath = raw['path_file'] ?? raw['file_path'];
+    int? fileSuratMasukId = raw['file_surat_masuk_id'] != null ? int.tryParse(raw['file_surat_masuk_id'].toString()) : null;
+    int? suratMasukId = widget.item.suratMasukId;
+
+    if ((fileSuratMasukId == null || fileSuratMasukId == 0) && suratMasukId != null && suratMasukId != 0) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (c) => const Center(child: CircularProgressIndicator()),
+      );
+      try {
+        final apiClient = ApiClient();
+        final detailRes = await apiClient.post('/correspondence/incoming-letter-detail', data: {'surat_masuk_id': suratMasukId});
+        if (!mounted) return;
+        Navigator.pop(context); // close loading
+        if (detailRes.statusCode == 200 && detailRes.data != null) {
+          final files = detailRes.data['data']?['files'] as List?;
+          if (files != null && files.isNotEmpty) {
+            fileSuratMasukId = files.first['file_surat_masuk_id'] != null ? int.tryParse(files.first['file_surat_masuk_id'].toString()) : null;
+            filePath = files.first['path_file']?.toString() ?? filePath;
+          }
+        }
+      } catch (_) {
+        if (mounted) Navigator.pop(context); // close loading on error
+      }
+    }
+
+    // fallback if still null
+    fileSuratMasukId ??= suratMasukId;
+
+    if (!mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => DocumentPreviewScreen(
           fileName: 'Lampiran_${widget.item.nomorAgenda ?? "Disposisi"}.pdf',
           title: widget.item.perihal,
-          endpoint: '/correspondence/letter-disposition-data/download/${widget.item.disposisiSuratId}',
+          endpoint: '/correspondence/incoming-file-download',
+          method: 'POST',
+          filePath: filePath?.toString(),
+          queryParameters: {
+            if (fileSuratMasukId != null && fileSuratMasukId != 0) 'file_surat_masuk_id': fileSuratMasukId,
+            if (filePath != null) 'path_file': filePath,
+          },
         ),
       ),
     );
