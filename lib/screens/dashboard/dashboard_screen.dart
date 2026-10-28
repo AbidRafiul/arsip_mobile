@@ -223,23 +223,50 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryBlue.withOpacity(0.1),
+                    color: AppTheme.primaryBlue.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     _selectedPeriodLabel,
                     style: const TextStyle(fontSize: 10, color: AppTheme.primaryBlue, fontWeight: FontWeight.bold),
                   ),
-                )
+                ),
               ],
             )
           ],
         ),
         actions: [
           if (user?.role?.toUpperCase() == 'SUPERADMIN')
-            IconButton(
-              icon: const Icon(Icons.location_city_rounded),
-              onPressed: () => _showBranchSwitcherBottomSheet(context),
+            Consumer<BranchProvider>(
+              builder: (context, branchProv, _) {
+                final isFiltered = branchProv.selectedBranch != null;
+                return Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    IconButton(
+                      icon: Icon(
+                        Icons.location_city_rounded,
+                        color: isFiltered ? AppTheme.primaryBlue : null,
+                      ),
+                      onPressed: () => _showBranchSwitcherBottomSheet(context),
+                      tooltip: 'Pilih Kantor',
+                    ),
+                    if (isFiltered)
+                      Positioned(
+                        right: 8,
+                        top: 10,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: AppTheme.primaryBlue,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
             ),
           IconButton(
             icon: const Icon(Icons.filter_list_rounded),
@@ -310,16 +337,145 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
       body: RefreshIndicator(
         onRefresh: _refreshAllData,
         color: AppTheme.primaryBlue,
-        child: TabBarView(
-          controller: _tabController,
+        child: Column(
           children: [
-            _buildExecutiveTab(context, multiDashboard),
-            _buildCorrespondenceTab(context, multiDashboard),
-            _buildArsipTab(context, multiDashboard),
-            _buildBukuTamuTab(context, multiDashboard),
+            _buildActiveBranchBanner(context),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildExecutiveTab(context, multiDashboard),
+                  _buildCorrespondenceTab(context, multiDashboard),
+                  _buildArsipTab(context, multiDashboard),
+                  _buildBukuTamuTab(context, multiDashboard),
+                ],
+              ),
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildActiveBranchBanner(BuildContext context) {
+    return Consumer<BranchProvider>(
+      builder: (context, branchProv, _) {
+        final sel = branchProv.selectedBranch;
+        if (sel == null) return const SizedBox.shrink();
+
+        final pathText = branchProv.selectedBranchPathText;
+
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.primaryBlue.withValues(alpha: 0.35)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryBlue.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.location_city_rounded,
+                  size: 18,
+                  color: AppTheme.primaryBlue,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        const Text(
+                          'Kantor Aktif: ',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppTheme.textSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Flexible(
+                          child: Text(
+                            sel.namaCabang,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryBlue,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (pathText.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          pathText,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.blue.shade900.withValues(alpha: 0.8),
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: () => _showBranchSwitcherBottomSheet(context),
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppTheme.primaryBlue.withValues(alpha: 0.4)),
+                  ),
+                  child: const Text(
+                    'Ganti',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryBlue,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              InkWell(
+                onTap: () {
+                  branchProv.selectBranch(null);
+                  _refreshAllData();
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 18,
+                    color: Colors.blue.shade800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -664,6 +820,7 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
   void _showBranchSwitcherBottomSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -676,73 +833,547 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
                 child: Center(child: CircularProgressIndicator()),
               );
             }
-
-            return Container(
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                    child: Text(
-                      'Pindah Kantor',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                  ),
-                  const Divider(),
-                  ListTile(
-                    leading: const Icon(Icons.business_rounded, color: AppTheme.primaryBlue),
-                    title: const Text('Semua Cabang', style: TextStyle(fontWeight: FontWeight.bold)),
-                    trailing: branchProv.selectedBranch == null
-                        ? const Icon(Icons.check_circle, color: AppTheme.primaryBlue)
-                        : null,
-                    onTap: () {
-                      branchProv.selectBranch(null);
-                      Navigator.pop(context);
-                      _refreshAllData();
-                    },
-                  ),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: branchProv.branches.length,
-                      itemBuilder: (context, index) {
-                        final b = branchProv.branches[index];
-                        final isSelected = branchProv.selectedBranch?.id == b.id;
-                        return ListTile(
-                          leading: Icon(
-                            Icons.location_on_outlined,
-                            color: isSelected ? AppTheme.primaryBlue : AppTheme.textSecondary,
-                          ),
-                          title: Text(
-                            b.namaCabang,
-                            style: TextStyle(
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                              color: isSelected ? AppTheme.primaryBlue : AppTheme.textPrimary,
-                            ),
-                          ),
-                          trailing: isSelected
-                              ? const Icon(Icons.check_circle, color: AppTheme.primaryBlue)
-                              : null,
-                          onTap: () {
-                            branchProv.selectBranch(b);
-                            Navigator.pop(context);
-                            _refreshAllData();
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
+            return _HierarchicalBranchSheet(
+              branchProv: branchProv,
+              onBranchSelected: (branch) {
+                branchProv.selectBranch(branch);
+                Navigator.pop(context);
+                _refreshAllData();
+              },
             );
           },
         );
       },
+    );
+  }
+}
+
+// ─── Hierarchical Branch Sheet Widget ────────────────────────────────────────
+
+class _HierarchicalBranchSheet extends StatefulWidget {
+  final BranchProvider branchProv;
+  final void Function(BranchModel?) onBranchSelected;
+
+  const _HierarchicalBranchSheet({
+    required this.branchProv,
+    required this.onBranchSelected,
+  });
+
+  @override
+  State<_HierarchicalBranchSheet> createState() =>
+      _HierarchicalBranchSheetState();
+}
+
+class _HierarchicalBranchSheetState extends State<_HierarchicalBranchSheet> {
+  // Navigation stack: null = root level
+  final List<BranchModel?> _navStack = [null];
+
+  BranchModel? get _currentParent => _navStack.last;
+
+  List<BranchModel> get _currentChildren {
+    if (_currentParent == null) {
+      return widget.branchProv.rootBranches;
+    }
+    return widget.branchProv.childrenOf(_currentParent!.id);
+  }
+
+  bool get _isAtRoot => _navStack.length == 1;
+
+  void _drillInto(BranchModel branch) {
+    setState(() => _navStack.add(branch));
+  }
+
+  void _goBack() {
+    if (!_isAtRoot) setState(() => _navStack.removeLast());
+  }
+
+  void _jumpToActiveBranchLocation() {
+    final activeBranch = widget.branchProv.selectedBranch;
+    if (activeBranch == null) return;
+    final path = widget.branchProv.getBranchPath(activeBranch);
+    if (path.length > 1) {
+      setState(() {
+        _navStack.clear();
+        _navStack.add(null);
+        for (int i = 0; i < path.length - 1; i++) {
+          _navStack.add(path[i]);
+        }
+      });
+    }
+  }
+
+  Widget _buildActiveOfficeBanner() {
+    final activeBranch = widget.branchProv.selectedBranch;
+    final activePath = widget.branchProv.selectedBranchPathText;
+    final pathList = widget.branchProv.selectedBranchPath;
+
+    if (activeBranch == null) {
+      return Container(
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.apartment_rounded, color: AppTheme.textSecondary, size: 16),
+            SizedBox(width: 8),
+            Text(
+              'Kantor Aktif: Semua Cabang (Global)',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryBlue.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.primaryBlue.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryBlue.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.check_circle_rounded,
+              color: AppTheme.primaryBlue,
+              size: 15,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    const Text(
+                      'Kantor Aktif: ',
+                      style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                    ),
+                    Flexible(
+                      child: Text(
+                        activeBranch.namaCabang,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryBlue,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                if (activePath.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 1),
+                    child: Text(
+                      'Jalur: $activePath',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.blue.shade900.withValues(alpha: 0.8),
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (_isAtRoot && pathList.length > 1)
+            InkWell(
+              onTap: _jumpToActiveBranchLocation,
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppTheme.primaryBlue.withValues(alpha: 0.4)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Buka Posisi',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryBlue,
+                      ),
+                    ),
+                    SizedBox(width: 2),
+                    Icon(Icons.arrow_forward_ios_rounded, size: 9, color: AppTheme.primaryBlue),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final double maxHeight = MediaQuery.of(context).size.height * 0.75;
+    final selectedId = widget.branchProv.selectedBranch?.id;
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── Header ──────────────────────────────────────────────────
+          Container(
+            padding: const EdgeInsets.fromLTRB(8, 16, 16, 8),
+            child: Row(
+              children: [
+                if (!_isAtRoot)
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+                    onPressed: _goBack,
+                    tooltip: 'Kembali',
+                  )
+                else
+                  const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Pindah Kantor',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      if (!_isAtRoot && _currentParent != null)
+                        Text(
+                          _currentParent!.namaCabang,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.primaryBlue,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // ── Current Active Office Info Banner ────────────────────────
+          _buildActiveOfficeBanner(),
+
+          // ── Breadcrumb Trail ─────────────────────────────────────────
+          if (_navStack.length > 1)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () => setState(() {
+                        _navStack.clear();
+                        _navStack.add(null);
+                      }),
+                      child: const Text(
+                        'Semua Cabang',
+                        style: TextStyle(fontSize: 11, color: AppTheme.primaryBlue),
+                      ),
+                    ),
+                    ..._navStack.skip(1).map((b) {
+                      final isLast = b == _navStack.last;
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.chevron_right_rounded,
+                              size: 14, color: AppTheme.textSecondary),
+                          Text(
+                            b?.namaCabang ?? '',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isLast ? AppTheme.textPrimary : AppTheme.primaryBlue,
+                              fontWeight: isLast ? FontWeight.w600 : FontWeight.normal,
+                            ),
+                          ),
+                        ],
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            ),
+
+          const Divider(height: 1),
+
+          // ── "Semua Cabang" option (root only) ────────────────────────
+          if (_isAtRoot)
+            ListTile(
+              leading: const Icon(Icons.business_rounded, color: AppTheme.primaryBlue),
+              title: const Text('Semua Cabang',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: const Text(
+                'Tampilkan seluruh data tanpa filter kantor',
+                style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+              ),
+              trailing: selectedId == null
+                  ? const Icon(Icons.check_circle, color: AppTheme.primaryBlue)
+                  : null,
+              onTap: () => widget.onBranchSelected(null),
+            ),
+
+          // ── "Pilih kantor ini" option when drilling down ─────────────
+          if (!_isAtRoot && _currentParent != null)
+            _SelectCurrentTile(
+              branch: _currentParent!,
+              isSelected: selectedId == _currentParent!.id,
+              onSelect: () => widget.onBranchSelected(_currentParent),
+            ),
+
+          if (!_isAtRoot) const Divider(height: 1),
+
+          // ── List of children ─────────────────────────────────────────
+          Flexible(
+            child: _currentChildren.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(
+                      child: Text(
+                        'Tidak ada sub-cabang',
+                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: _currentChildren.length,
+                    itemBuilder: (context, index) {
+                      final b = _currentChildren[index];
+                      final isSelected = selectedId == b.id;
+                      final hasKids = widget.branchProv.hasChildren(b.id);
+                      final containsActive = widget.branchProv.containsSelected(b.id);
+
+                      // If this branch holds the active branch in its subtree (and is not selected itself)
+                      final isParentOfActive = containsActive && !isSelected;
+
+                      return Container(
+                        margin: isParentOfActive
+                            ? const EdgeInsets.symmetric(horizontal: 10, vertical: 3)
+                            : EdgeInsets.zero,
+                        decoration: isParentOfActive
+                            ? BoxDecoration(
+                                color: AppTheme.primaryBlue.withValues(alpha: 0.04),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: AppTheme.primaryBlue.withValues(alpha: 0.25),
+                                  width: 0.8,
+                                ),
+                              )
+                            : null,
+                        child: ListTile(
+                          leading: Icon(
+                            hasKids
+                                ? (isParentOfActive
+                                    ? Icons.account_tree_rounded
+                                    : Icons.account_tree_outlined)
+                                : Icons.location_on_outlined,
+                            color: (isSelected || isParentOfActive)
+                                ? AppTheme.primaryBlue
+                                : AppTheme.textSecondary,
+                            size: 22,
+                          ),
+                          title: Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  b.namaCabang,
+                                  style: TextStyle(
+                                    fontWeight: (isSelected || isParentOfActive)
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                    color: (isSelected || isParentOfActive)
+                                        ? AppTheme.primaryBlue
+                                        : AppTheme.textPrimary,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (isParentOfActive)
+                                Container(
+                                  margin: const EdgeInsets.only(left: 6),
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryBlue.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Text(
+                                    'Ada Kantor Aktif',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.primaryBlue,
+                                    ),
+                                  ),
+                                ),
+                              if (isSelected)
+                                Container(
+                                  margin: const EdgeInsets.only(left: 6),
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.shade50,
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: Colors.green.shade300, width: 0.8),
+                                  ),
+                                  child: Text(
+                                    'Aktif',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.green.shade800,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          subtitle: isParentOfActive
+                              ? Text(
+                                  'Cabang aktif: ${widget.branchProv.selectedBranch!.namaCabang}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: AppTheme.primaryBlue,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                )
+                              : (hasKids
+                                  ? const Text(
+                                      'Ketuk untuk melihat sub-cabang',
+                                      style: TextStyle(
+                                          fontSize: 11, color: AppTheme.textSecondary),
+                                    )
+                                  : null),
+                          trailing: hasKids
+                              ? Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (isParentOfActive)
+                                      Container(
+                                        width: 7,
+                                        height: 7,
+                                        margin: const EdgeInsets.only(right: 4),
+                                        decoration: const BoxDecoration(
+                                          color: AppTheme.primaryBlue,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                    Icon(
+                                      Icons.chevron_right_rounded,
+                                      color: (isSelected || isParentOfActive)
+                                          ? AppTheme.primaryBlue
+                                          : AppTheme.textSecondary,
+                                    ),
+                                  ],
+                                )
+                              : isSelected
+                                  ? const Icon(Icons.check_circle,
+                                      color: AppTheme.primaryBlue)
+                                  : null,
+                          onTap: () {
+                            if (hasKids) {
+                              _drillInto(b);
+                            } else {
+                              widget.onBranchSelected(b);
+                            }
+                          },
+                          onLongPress: hasKids
+                              ? () => widget.onBranchSelected(b)
+                              : null,
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Helper: "Pilih kantor ini" tile ─────────────────────────────────────────
+
+class _SelectCurrentTile extends StatelessWidget {
+  final BranchModel branch;
+  final bool isSelected;
+  final VoidCallback onSelect;
+
+  const _SelectCurrentTile({
+    required this.branch,
+    required this.isSelected,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: isSelected
+            ? AppTheme.primaryBlue.withValues(alpha: 0.08)
+            : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isSelected
+              ? AppTheme.primaryBlue.withValues(alpha: 0.4)
+              : Colors.grey.shade200,
+        ),
+      ),
+      child: ListTile(
+        leading: Icon(
+          Icons.business_rounded,
+          color: isSelected ? AppTheme.primaryBlue : AppTheme.textSecondary,
+        ),
+        title: Text(
+          'Pilih: ${branch.namaCabang}',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: isSelected ? AppTheme.primaryBlue : AppTheme.textPrimary,
+            fontSize: 13,
+          ),
+        ),
+        subtitle: const Text(
+          'Filter semua data dari kantor ini',
+          style: TextStyle(fontSize: 11),
+        ),
+        trailing: isSelected
+            ? const Icon(Icons.check_circle, color: AppTheme.primaryBlue)
+            : const Icon(Icons.radio_button_unchecked_rounded,
+                color: AppTheme.textSecondary, size: 20),
+        onTap: onSelect,
+      ),
     );
   }
 }

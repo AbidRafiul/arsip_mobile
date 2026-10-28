@@ -58,7 +58,15 @@ class AuthService {
 
   Future<String?> fetchAccessToken() async {
     try {
-      final response = await _apiClient.get(ApiConfig.endpointToken);
+      final basicToken = ApiConfig.getBasicToken();
+      final response = await _apiClient.get(
+        ApiConfig.endpointToken,
+        options: Options(
+          headers: {
+            ApiConfig.headerAuth: basicToken,
+          },
+        ),
+      );
       debugPrint("Fetch Token Status: ${response.statusCode}, Data: ${response.data}");
       if (response.statusCode == 200 && response.data != null) {
         final token = response.data['data']?['access_token'] ?? response.data['access_token'];

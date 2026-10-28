@@ -4,6 +4,8 @@ class BranchModel {
   final String namaCabang;
   final String kodeCabang;
   final String status;
+  final int level;
+  final String? namaInduk;
 
   BranchModel({
     required this.id,
@@ -11,6 +13,8 @@ class BranchModel {
     required this.namaCabang,
     required this.kodeCabang,
     required this.status,
+    this.level = 1,
+    this.namaInduk,
   });
 
   factory BranchModel.fromJson(Map<String, dynamic> json) {
@@ -20,6 +24,8 @@ class BranchModel {
       namaCabang: json['nama_cabang'] ?? 'Cabang Tidak Diketahui',
       kodeCabang: json['kode_cabang'] ?? '-',
       status: json['status'] ?? 'aktif',
+      level: json['level'] ?? 1,
+      namaInduk: json['nama_induk'],
     );
   }
 }

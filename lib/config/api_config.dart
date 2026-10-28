@@ -1,15 +1,18 @@
+import 'dart:convert';
 import 'dart:io';
+import 'package:crypto/crypto.dart';
+import 'package:intl/intl.dart';
 
 class ApiConfig {
   static String _resolveDefaultBaseUrl() {
     try {
       if (Platform.isAndroid) {
-        return 'http://192.168.1.26:8000/api/v1'; // Menggunakan IP Laptop agar bisa diakses dari HP fisik
+        return 'http://192.168.1.22:8000/api/v1'; // Menggunakan IP Laptop agar bisa diakses dari HP fisik
       } else if (Platform.isIOS || Platform.isMacOS) {
         return 'http://127.0.0.1:8000/api/v1';
       }
     } catch (_) {}
-    return 'http://192.168.1.26:8000/api/v1';
+    return 'http://192.168.1.22:8000/api/v1';
   }
 
   static String baseUrl = _resolveDefaultBaseUrl();
@@ -23,11 +26,30 @@ class ApiConfig {
   static const String headerTimestamp = 'x-timestamp';
   static const String headerFilterCabang = 'x-filter-cabang';
 
+  // Security Keys for System Access Token
+  static const String userKey = 'b9c4e2a1f8d3b7c6e5a4f1d2e9c8b7a6';
+  static const String userPasKey = 'd7a8f9e1b2c3d4e5f6a7b8c9d0e1f2a3';
+  static const String userSecret = 'c3b4a5d6e7f8a9b0c1d2e3f4a5b6c7d8';
+
+  /// Generate Basic Auth token for /auth/token endpoint
+  static String getBasicToken() {
+    final dateStr = DateFormat('yyyyMMdd').format(DateTime.now());
+    final key = '$userKey#$dateStr#Key';
+    final pasKey = '$userPasKey#$dateStr#PassKey';
+    final secret = '$userSecret#$dateStr#SecretKey';
+
+    final hmac1 = Hmac(sha256, utf8.encode(secret)).convert(utf8.encode(key)).toString();
+    final hmac2 = Hmac(sha256, utf8.encode(secret)).convert(utf8.encode(pasKey)).toString();
+    final credentials = base64Encode(utf8.encode('$hmac1:$hmac2'));
+    return 'Basic $credentials';
+  }
+
   // Global State for ApiClient
   static int? selectedBranchId;
 
   // Master Endpoints
-  static const String endpointBranchGet = '/master/organisasi/branches/get-data';
+  static const String endpointBranchGet =
+      '/master/organisasi/branches/get-data';
 
   // Auth Endpoints
   static const String endpointToken = '/auth/token';
