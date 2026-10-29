@@ -60,15 +60,12 @@ class ApiClient {
 
           options.headers[ApiConfig.headerTimestamp] = DateTime.now().toIso8601String();
 
-          // Global Branch Switcher override
+          // Global Branch Switcher override (sama dengan Web: memuat cabang dan turunannya)
           if (ApiConfig.selectedBranchId != null) {
             options.headers[ApiConfig.headerFilterCabang] = ApiConfig.selectedBranchId.toString();
-            // Minta backend untuk tidak me-load data anak cabang (recursive) agar klop dengan Dashboard Web
-            options.headers['x-exact-cabang'] = 'true';
           } else {
             // Remove it if null so Superadmin can see all branches
             options.headers.remove(ApiConfig.headerFilterCabang);
-            options.headers.remove('x-exact-cabang');
           }
 
           return handler.next(options);

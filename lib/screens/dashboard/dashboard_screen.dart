@@ -10,6 +10,7 @@ import '../profile/profile_screen.dart';
 import '../notification/notification_screen.dart';
 import '../arsip/arsip_list_screen.dart';
 import '../buku_tamu/buku_tamu_list_screen.dart';
+import '../../services/notification_service.dart';
 
 import '../../providers/dashboard_provider.dart';
 import '../../models/unified_approval_model.dart';
@@ -89,15 +90,30 @@ class _MultiDashboardHomeView extends StatefulWidget {
 class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  
+
   String _selectedPeriodLabel = 'Semua Waktu';
   String? _startDate = '2000-01-01';
   String? _endDate = '2100-12-31';
 
+  int _unreadNotifCount = 0;
+  final NotificationService _notificationService = NotificationService();
+
+  Future<void> _fetchUnreadNotificationCount() async {
+    try {
+      final notifs = await _notificationService.getNotifications();
+      if (mounted) {
+        setState(() {
+          _unreadNotifCount = notifs.where((n) => !n.isRead).length;
+        });
+      }
+    } catch (_) {}
+  }
+
   @override
   void initState() {
     super.initState();
-    
+    _fetchUnreadNotificationCount();
+
     // Fetch branches if superadmin
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final auth = Provider.of<AuthProvider>(context, listen: false);
@@ -110,7 +126,8 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
         Provider.of<MultiDashboardProvider>(context, listen: false)
-            .setSelectedModuleIndex(_tabController.index, startDate: _startDate, endDate: _endDate);
+            .setSelectedModuleIndex(_tabController.index,
+                startDate: _startDate, endDate: _endDate);
       }
     });
 
@@ -129,8 +146,10 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
   }
 
   Future<void> _refreshAllData() async {
+    _fetchUnreadNotificationCount();
     await Future.wait([
-      Provider.of<MultiDashboardProvider>(context, listen: false).refreshAll(startDate: _startDate, endDate: _endDate),
+      Provider.of<MultiDashboardProvider>(context, listen: false)
+          .refreshAll(startDate: _startDate, endDate: _endDate),
       Provider.of<DashboardProvider>(context, listen: false)
           .fetchDashboardData(startDate: _startDate, endDate: _endDate),
     ]);
@@ -149,7 +168,9 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
             children: [
               const Padding(
                 padding: EdgeInsets.all(16.0),
-                child: Text('Pilih Periode', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                child: Text('Pilih Periode',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
               _buildFilterOption('Hari Ini', _getToday(), _getToday()),
               _buildFilterOption('Kemarin', _getYesterday(), _getYesterday()),
@@ -164,11 +185,18 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
   }
 
   String _getToday() => DateTime.now().toIso8601String().substring(0, 10);
-  String _getYesterday() => DateTime.now().subtract(const Duration(days: 1)).toIso8601String().substring(0, 10);
+  String _getYesterday() => DateTime.now()
+      .subtract(const Duration(days: 1))
+      .toIso8601String()
+      .substring(0, 10);
   String _getStartOfWeek() {
     final now = DateTime.now();
-    return now.subtract(Duration(days: now.weekday - 1)).toIso8601String().substring(0, 10);
+    return now
+        .subtract(Duration(days: now.weekday - 1))
+        .toIso8601String()
+        .substring(0, 10);
   }
+
   String _getStartOfMonth() {
     final now = DateTime.now();
     return DateTime(now.year, now.month, 1).toIso8601String().substring(0, 10);
@@ -177,7 +205,9 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
   Widget _buildFilterOption(String label, String? start, String? end) {
     return ListTile(
       title: Text(label),
-      trailing: _selectedPeriodLabel == label ? const Icon(Icons.check, color: AppTheme.primaryBlue) : null,
+      trailing: _selectedPeriodLabel == label
+          ? const Icon(Icons.check, color: AppTheme.primaryBlue)
+          : null,
       onTap: () {
         Navigator.pop(context);
         setState(() {
@@ -221,14 +251,18 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: AppTheme.primaryBlue.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     _selectedPeriodLabel,
-                    style: const TextStyle(fontSize: 10, color: AppTheme.primaryBlue, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        fontSize: 10,
+                        color: AppTheme.primaryBlue,
+                        fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
@@ -276,26 +310,29 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
             children: [
               IconButton(
                 icon: const Icon(Icons.notifications_outlined, size: 26),
-                onPressed: () {
-                  Navigator.push(
+                onPressed: () async {
+                  await Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const NotificationScreen()),
+                    MaterialPageRoute(
+                        builder: (context) => const NotificationScreen()),
                   );
+                  _fetchUnreadNotificationCount();
                 },
               ),
-              // Badge notifikasi
-              Positioned(
-                right: 8,
-                top: 8,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: AppTheme.dangerColor,
-                    shape: BoxShape.circle,
+              // Badge notifikasi (hanya muncul jika ada notifikasi belum dibaca)
+              if (_unreadNotifCount > 0)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: AppTheme.dangerColor,
+                      shape: BoxShape.circle,
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
           IconButton(
@@ -372,7 +409,8 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
           decoration: BoxDecoration(
             color: Colors.blue.shade50,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.primaryBlue.withValues(alpha: 0.35)),
+            border:
+                Border.all(color: AppTheme.primaryBlue.withValues(alpha: 0.35)),
           ),
           child: Row(
             children: [
@@ -440,11 +478,13 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
                 onTap: () => _showBranchSwitcherBottomSheet(context),
                 borderRadius: BorderRadius.circular(6),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppTheme.primaryBlue.withValues(alpha: 0.4)),
+                    border: Border.all(
+                        color: AppTheme.primaryBlue.withValues(alpha: 0.4)),
                   ),
                   child: const Text(
                     'Ganti',
@@ -490,45 +530,112 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Banner Total Pending — gradient biru
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppTheme.primaryBlue, AppTheme.primaryBlueDark],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+          // Banner Total Pending — gradient biru (Bisa diklik untuk membuka detail approval)
+          Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(16),
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const ApprovalListScreen(),
+                  ),
+                );
+              },
               borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Pusat Persetujuan Eksekutif',
-                    style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        letterSpacing: 0.3)),
-                const SizedBox(height: 6),
-                Text(
-                  '${stats.grandTotalPending}',
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 36,
-                      fontWeight: FontWeight.w800),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppTheme.primaryBlue, AppTheme.primaryBlueDark],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.primaryBlue.withValues(alpha: 0.28),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                const Text('Permohonan Menunggu Tindakan',
-                    style: TextStyle(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Text(
+                          'Pusat Persetujuan Eksekutif',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '${stats.grandTotalPending}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 36,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const Text(
+                      'Permohonan Menunggu Tindakan',
+                      style: TextStyle(
                         color: Colors.white,
                         fontSize: 14,
-                        fontWeight: FontWeight.w500)),
-                const SizedBox(height: 4),
-                const Text(
-                  'Daftar permohonan dari seluruh modul yang memerlukan persetujuan Anda.',
-                  style: TextStyle(color: Colors.white60, fontSize: 11),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Daftar permohonan dari seluruh modul yang memerlukan persetujuan Anda.',
+                      style: TextStyle(color: Colors.white60, fontSize: 11),
+                    ),
+                    const SizedBox(height: 14),
+                    // Tombol Aksi Buka Detail
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Text(
+                                'Buka Detail Permohonan',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.primaryBlue,
+                                ),
+                              ),
+                              SizedBox(width: 4),
+                              Icon(
+                                Icons.arrow_forward_rounded,
+                                size: 14,
+                                color: AppTheme.primaryBlue,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
           const SizedBox(height: 24),
@@ -558,7 +665,9 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
                     );
                   }),
               StatCard(
-                  title: _selectedPeriodLabel == 'Hari Ini' ? 'Tamu Hari Ini' : 'Total Tamu',
+                  title: _selectedPeriodLabel == 'Hari Ini'
+                      ? 'Tamu Hari Ini'
+                      : 'Total Tamu',
                   value: '${sysSummary?.tamuHariIni ?? 0}',
                   icon: Icons.badge_outlined,
                   color: AppTheme.successColor,
@@ -592,7 +701,8 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const ArsipListScreen(filter: 'expired'),
+                        builder: (_) =>
+                            const ArsipListScreen(filter: 'expired'),
                       ),
                     );
                   }),
@@ -616,8 +726,12 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
                   icon: Icons.send_rounded,
                   color: AppTheme.primaryBlue,
                   onTap: () {
-                    Provider.of<UnifiedApprovalProvider>(context, listen: false).setSelectedCategory(ApprovalCategory.outgoingLetter);
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ApprovalListScreen()));
+                    Provider.of<UnifiedApprovalProvider>(context, listen: false)
+                        .setSelectedCategory(ApprovalCategory.outgoingLetter);
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const ApprovalListScreen()));
                   }),
               StatCard(
                   title: 'Peminjaman Arsip',
@@ -625,8 +739,12 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
                   icon: Icons.folder_shared_rounded,
                   color: AppTheme.warningColor,
                   onTap: () {
-                    Provider.of<UnifiedApprovalProvider>(context, listen: false).setSelectedCategory(ApprovalCategory.archiveLoan);
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ApprovalListScreen()));
+                    Provider.of<UnifiedApprovalProvider>(context, listen: false)
+                        .setSelectedCategory(ApprovalCategory.archiveLoan);
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const ApprovalListScreen()));
                   }),
               StatCard(
                   title: 'Versi Dokumen',
@@ -634,8 +752,12 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
                   icon: Icons.history_edu_rounded,
                   color: AppTheme.successColor,
                   onTap: () {
-                    Provider.of<UnifiedApprovalProvider>(context, listen: false).setSelectedCategory(ApprovalCategory.documentVersion);
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ApprovalListScreen()));
+                    Provider.of<UnifiedApprovalProvider>(context, listen: false)
+                        .setSelectedCategory(ApprovalCategory.documentVersion);
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const ApprovalListScreen()));
                   }),
               StatCard(
                   title: 'Kunjungan Tamu',
@@ -643,8 +765,12 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
                   icon: Icons.people_alt_rounded,
                   color: const Color(0xFF3B82F6),
                   onTap: () {
-                    Provider.of<UnifiedApprovalProvider>(context, listen: false).setSelectedCategory(ApprovalCategory.guestVisit);
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ApprovalListScreen()));
+                    Provider.of<UnifiedApprovalProvider>(context, listen: false)
+                        .setSelectedCategory(ApprovalCategory.guestVisit);
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const ApprovalListScreen()));
                   }),
               StatCard(
                   title: 'Pemusnahan JRA',
@@ -652,8 +778,13 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
                   icon: Icons.delete_sweep_rounded,
                   color: AppTheme.dangerColor,
                   onTap: () {
-                    Provider.of<UnifiedApprovalProvider>(context, listen: false).setSelectedCategory(ApprovalCategory.destructionProposal);
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ApprovalListScreen()));
+                    Provider.of<UnifiedApprovalProvider>(context, listen: false)
+                        .setSelectedCategory(
+                            ApprovalCategory.destructionProposal);
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const ApprovalListScreen()));
                   }),
               StatCard(
                   title: 'Disposisi Aktif',
@@ -661,8 +792,12 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
                   icon: Icons.move_to_inbox_rounded,
                   color: const Color(0xFF7C3AED),
                   onTap: () {
-                    Provider.of<UnifiedApprovalProvider>(context, listen: false).setSelectedCategory(ApprovalCategory.disposition);
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ApprovalListScreen()));
+                    Provider.of<UnifiedApprovalProvider>(context, listen: false)
+                        .setSelectedCategory(ApprovalCategory.disposition);
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const ApprovalListScreen()));
                   }),
             ],
           ),
@@ -791,7 +926,9 @@ class _MultiDashboardHomeViewState extends State<_MultiDashboardHomeView>
             childAspectRatio: 1.45,
             children: [
               StatCard(
-                  title: _selectedPeriodLabel == 'Hari Ini' ? 'Kunjungan Hari Ini' : 'Total Kunjungan',
+                  title: _selectedPeriodLabel == 'Hari Ini'
+                      ? 'Kunjungan Hari Ini'
+                      : 'Total Kunjungan',
                   value: '${stats.tamuHariIni}',
                   icon: Icons.people_rounded,
                   color: AppTheme.primaryBlue),
@@ -918,7 +1055,8 @@ class _HierarchicalBranchSheetState extends State<_HierarchicalBranchSheet> {
         ),
         child: const Row(
           children: [
-            Icon(Icons.apartment_rounded, color: AppTheme.textSecondary, size: 16),
+            Icon(Icons.apartment_rounded,
+                color: AppTheme.textSecondary, size: 16),
             SizedBox(width: 8),
             Text(
               'Kantor Aktif: Semua Cabang (Global)',
@@ -965,7 +1103,8 @@ class _HierarchicalBranchSheetState extends State<_HierarchicalBranchSheet> {
                   children: [
                     const Text(
                       'Kantor Aktif: ',
-                      style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                      style: TextStyle(
+                          fontSize: 11, color: AppTheme.textSecondary),
                     ),
                     Flexible(
                       child: Text(
@@ -1007,7 +1146,8 @@ class _HierarchicalBranchSheetState extends State<_HierarchicalBranchSheet> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppTheme.primaryBlue.withValues(alpha: 0.4)),
+                  border: Border.all(
+                      color: AppTheme.primaryBlue.withValues(alpha: 0.4)),
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
@@ -1021,7 +1161,8 @@ class _HierarchicalBranchSheetState extends State<_HierarchicalBranchSheet> {
                       ),
                     ),
                     SizedBox(width: 2),
-                    Icon(Icons.arrow_forward_ios_rounded, size: 9, color: AppTheme.primaryBlue),
+                    Icon(Icons.arrow_forward_ios_rounded,
+                        size: 9, color: AppTheme.primaryBlue),
                   ],
                 ),
               ),
@@ -1049,7 +1190,8 @@ class _HierarchicalBranchSheetState extends State<_HierarchicalBranchSheet> {
               children: [
                 if (!_isAtRoot)
                   IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+                    icon:
+                        const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
                     onPressed: _goBack,
                     tooltip: 'Kembali',
                   )
@@ -1101,7 +1243,8 @@ class _HierarchicalBranchSheetState extends State<_HierarchicalBranchSheet> {
                       }),
                       child: const Text(
                         'Semua Cabang',
-                        style: TextStyle(fontSize: 11, color: AppTheme.primaryBlue),
+                        style: TextStyle(
+                            fontSize: 11, color: AppTheme.primaryBlue),
                       ),
                     ),
                     ..._navStack.skip(1).map((b) {
@@ -1115,8 +1258,11 @@ class _HierarchicalBranchSheetState extends State<_HierarchicalBranchSheet> {
                             b?.namaCabang ?? '',
                             style: TextStyle(
                               fontSize: 11,
-                              color: isLast ? AppTheme.textPrimary : AppTheme.primaryBlue,
-                              fontWeight: isLast ? FontWeight.w600 : FontWeight.normal,
+                              color: isLast
+                                  ? AppTheme.textPrimary
+                                  : AppTheme.primaryBlue,
+                              fontWeight:
+                                  isLast ? FontWeight.w600 : FontWeight.normal,
                             ),
                           ),
                         ],
@@ -1132,7 +1278,8 @@ class _HierarchicalBranchSheetState extends State<_HierarchicalBranchSheet> {
           // ── "Semua Cabang" option (root only) ────────────────────────
           if (_isAtRoot)
             ListTile(
-              leading: const Icon(Icons.business_rounded, color: AppTheme.primaryBlue),
+              leading: const Icon(Icons.business_rounded,
+                  color: AppTheme.primaryBlue),
               title: const Text('Semua Cabang',
                   style: TextStyle(fontWeight: FontWeight.bold)),
               subtitle: const Text(
@@ -1163,7 +1310,8 @@ class _HierarchicalBranchSheetState extends State<_HierarchicalBranchSheet> {
                     child: Center(
                       child: Text(
                         'Tidak ada sub-cabang',
-                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+                        style: TextStyle(
+                            color: AppTheme.textSecondary, fontSize: 14),
                       ),
                     ),
                   )
@@ -1174,21 +1322,25 @@ class _HierarchicalBranchSheetState extends State<_HierarchicalBranchSheet> {
                       final b = _currentChildren[index];
                       final isSelected = selectedId == b.id;
                       final hasKids = widget.branchProv.hasChildren(b.id);
-                      final containsActive = widget.branchProv.containsSelected(b.id);
+                      final containsActive =
+                          widget.branchProv.containsSelected(b.id);
 
                       // If this branch holds the active branch in its subtree (and is not selected itself)
                       final isParentOfActive = containsActive && !isSelected;
 
                       return Container(
                         margin: isParentOfActive
-                            ? const EdgeInsets.symmetric(horizontal: 10, vertical: 3)
+                            ? const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 3)
                             : EdgeInsets.zero,
                         decoration: isParentOfActive
                             ? BoxDecoration(
-                                color: AppTheme.primaryBlue.withValues(alpha: 0.04),
+                                color: AppTheme.primaryBlue
+                                    .withValues(alpha: 0.04),
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
-                                  color: AppTheme.primaryBlue.withValues(alpha: 0.25),
+                                  color: AppTheme.primaryBlue
+                                      .withValues(alpha: 0.25),
                                   width: 0.8,
                                 ),
                               )
@@ -1225,9 +1377,11 @@ class _HierarchicalBranchSheetState extends State<_HierarchicalBranchSheet> {
                               if (isParentOfActive)
                                 Container(
                                   margin: const EdgeInsets.only(left: 6),
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 5, vertical: 1.5),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.primaryBlue.withValues(alpha: 0.12),
+                                    color: AppTheme.primaryBlue
+                                        .withValues(alpha: 0.12),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: const Text(
@@ -1242,11 +1396,14 @@ class _HierarchicalBranchSheetState extends State<_HierarchicalBranchSheet> {
                               if (isSelected)
                                 Container(
                                   margin: const EdgeInsets.only(left: 6),
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 5, vertical: 1.5),
                                   decoration: BoxDecoration(
                                     color: Colors.green.shade50,
                                     borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(color: Colors.green.shade300, width: 0.8),
+                                    border: Border.all(
+                                        color: Colors.green.shade300,
+                                        width: 0.8),
                                   ),
                                   child: Text(
                                     'Aktif',
@@ -1272,7 +1429,8 @@ class _HierarchicalBranchSheetState extends State<_HierarchicalBranchSheet> {
                                   ? const Text(
                                       'Ketuk untuk melihat sub-cabang',
                                       style: TextStyle(
-                                          fontSize: 11, color: AppTheme.textSecondary),
+                                          fontSize: 11,
+                                          color: AppTheme.textSecondary),
                                     )
                                   : null),
                           trailing: hasKids
@@ -1308,9 +1466,8 @@ class _HierarchicalBranchSheetState extends State<_HierarchicalBranchSheet> {
                               widget.onBranchSelected(b);
                             }
                           },
-                          onLongPress: hasKids
-                              ? () => widget.onBranchSelected(b)
-                              : null,
+                          onLongPress:
+                              hasKids ? () => widget.onBranchSelected(b) : null,
                         ),
                       );
                     },

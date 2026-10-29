@@ -54,6 +54,28 @@ class UnifiedApprovalItem {
   final String? notes;
   final Map<String, dynamic> rawData;
 
+  String? get branchName {
+    if (rawData['nama_cabang'] != null && rawData['nama_cabang'].toString().isNotEmpty) {
+      return rawData['nama_cabang'].toString();
+    }
+    if (rawData['cabang'] is Map && rawData['cabang']['nama_cabang'] != null) {
+      return rawData['cabang']['nama_cabang'].toString();
+    }
+    if (rawData['nama_kantor'] != null && rawData['nama_kantor'].toString().isNotEmpty) {
+      return rawData['nama_kantor'].toString();
+    }
+    return null;
+  }
+
+  int? get branchId {
+    final val = rawData['id_cabang'] ?? rawData['cabang_id'] ?? rawData['id_kantor'];
+    if (val != null) {
+      final parsed = _parseInt(val);
+      if (parsed > 0) return parsed;
+    }
+    return null;
+  }
+
   UnifiedApprovalItem({
     required this.id,
     required this.category,
