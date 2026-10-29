@@ -1,3 +1,6 @@
+import 'package:flutter/material.dart';
+import 'unified_approval_model.dart';
+
 class DispositionItemModel {
   final int disposisiSuratId;
   final int suratMasukId;
@@ -13,6 +16,7 @@ class DispositionItemModel {
   final String? batasWaktu;
   final String status;
   final String createdAt;
+  final Map<String, dynamic> rawData;
 
   DispositionItemModel({
     required this.disposisiSuratId,
@@ -29,6 +33,7 @@ class DispositionItemModel {
     this.batasWaktu,
     required this.status,
     required this.createdAt,
+    required this.rawData,
   });
 
   factory DispositionItemModel.fromJson(Map<String, dynamic> json) {
@@ -47,6 +52,14 @@ class DispositionItemModel {
       batasWaktu: json['batas_waktu'],
       status: json['status'] ?? 'baru',
       createdAt: json['created_at'] ?? '',
+      rawData: json,
     );
+  }
+
+  // Method untuk convert ke UnifiedApprovalItem agar bisa pakai layar detail yang sama
+  UnifiedApprovalItem toUnifiedItem() {
+    // Karena kita sudah punya rawData, kita bisa memanggil constructor fromDisposition
+    // Pastikan rawData memiliki properti 'disposisi_surat_id' atau 'id_disposisi'
+    return UnifiedApprovalItem.fromDisposition(rawData);
   }
 }

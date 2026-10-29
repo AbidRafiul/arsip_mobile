@@ -14,12 +14,15 @@ class DashboardProvider extends ChangeNotifier {
   List<AuditLogItem> _recentActivities = [];
   List<AuditLogItem> get recentActivities => _recentActivities;
 
-  Future<void> fetchDashboardData() async {
+  Future<void> fetchDashboardData({String? startDate, String? endDate}) async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      final summaryRes = await _dashboardService.getSummaryStats();
+      final summaryRes = await _dashboardService.getSummaryStats(
+        startDate: startDate,
+        endDate: endDate,
+      );
       final activitiesRes = await _dashboardService.getRecentActivities();
 
       _summary = summaryRes;

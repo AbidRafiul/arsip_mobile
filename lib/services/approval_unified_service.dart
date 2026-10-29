@@ -26,7 +26,7 @@ class ApprovalUnifiedService {
             if (keyword != null && keyword.isNotEmpty) 'keyword': keyword,
           },
         );
-        if (response.statusCode == 200 && response.data?['status'] == true) {
+        if (response.statusCode == 200 && (response.data?['status'] == true || response.data?['status'] == '00' || response.data?['status'] == 'success')) {
           final List listRaw = response.data['data'] ?? [];
           items.addAll(listRaw.map((e) => UnifiedApprovalItem.fromOutgoingLetter(e)));
         }
@@ -39,14 +39,13 @@ class ApprovalUnifiedService {
         final response = await _apiClient.post(
           ApiConfig.endpointDispositionData,
           data: {
-            'page': page,
-            'limit': limit,
             if (keyword != null && keyword.isNotEmpty) 'keyword': keyword,
           },
         );
-        if (response.statusCode == 200 && response.data?['status'] == true) {
+        if (response.statusCode == 200 && (response.data?['status'] == true || response.data?['status'] == '00' || response.data?['status'] == 'success')) {
           final List listRaw = response.data['data'] ?? [];
-          items.addAll(listRaw.map((e) => UnifiedApprovalItem.fromDisposition(e)));
+          final pendingList = listRaw.where((e) => e['status']?.toString().toLowerCase() != 'selesai').toList();
+          items.addAll(pendingList.map((e) => UnifiedApprovalItem.fromDisposition(e)));
         }
       } catch (_) {}
     }
@@ -59,10 +58,20 @@ class ApprovalUnifiedService {
           queryParameters: {'status': 'pending'},
         );
         if (response.statusCode == 200 && response.data != null) {
-          final List listRaw = response.data['data'] ?? response.data['loans'] ?? [];
+          final data = response.data['data'];
+          List listRaw = [];
+          if (data is List) {
+            listRaw = data;
+          } else if (data is Map) {
+            listRaw = data['loans'] ?? data['data'] ?? data['rows'] ?? [];
+          } else if (response.data['loans'] is List) {
+            listRaw = response.data['loans'];
+          }
           items.addAll(listRaw.map((e) => UnifiedApprovalItem.fromArchiveLoan(e)));
         }
-      } catch (_) {}
+      } catch (e) {
+        print('Error parsing ArchiveLoan: \$e');
+      }
     }
 
     // 4. Versi Dokumen
@@ -73,10 +82,20 @@ class ApprovalUnifiedService {
           queryParameters: {'status_persetujuan': 'pending'},
         );
         if (response.statusCode == 200 && response.data != null) {
-          final List listRaw = response.data['data'] ?? response.data['versions'] ?? [];
+          final data = response.data['data'];
+          List listRaw = [];
+          if (data is List) {
+            listRaw = data;
+          } else if (data is Map) {
+            listRaw = data['versions'] ?? data['data'] ?? data['rows'] ?? [];
+          } else if (response.data['versions'] is List) {
+            listRaw = response.data['versions'];
+          }
           items.addAll(listRaw.map((e) => UnifiedApprovalItem.fromDocumentVersion(e)));
         }
-      } catch (_) {}
+      } catch (e) {
+        print('Error parsing DocumentVersion: \$e');
+      }
     }
 
     // 5. Kunjungan Tamu
@@ -91,10 +110,40 @@ class ApprovalUnifiedService {
           },
         );
         if (response.statusCode == 200 && response.data != null) {
-          final List listRaw = response.data['data']?['rows'] ?? response.data['data'] ?? [];
-          items.addAll(listRaw.map((e) => UnifiedApprovalItem.fromGuestVisit(e)));
+          final data = response.data['data'];
+          List listRaw = [];
+          if (data is List) {
+            listRaw = data;
+          } else if (data is Map) {
+            listRaw = data['rows'] ?? data['data'] ?? [];
+          }
+          for (var e in listRaw) {
+            try {
+              items.add(UnifiedApprovalItem.fromGuestVisit(Map<String, dynamic>.from(e)));
+            } catch (err, stack) {
+              items.add(UnifiedApprovalItem(
+                id: -99,
+                category: ApprovalCategory.guestVisit,
+                title: 'Parsing Error',
+                subtitle: err.toString(),
+                date: '-',
+                status: 'error',
+                rawData: {},
+              ));
+            }
+          }
         }
-      } catch (_) {}
+      } catch (e) {
+        items.add(UnifiedApprovalItem(
+          id: -100,
+          category: ApprovalCategory.guestVisit,
+          title: 'API Error',
+          subtitle: e.toString(),
+          date: '-',
+          status: 'error',
+          rawData: {},
+        ));
+      }
     }
 
     // 6. Pemusnahan Arsip JRA
@@ -105,10 +154,20 @@ class ApprovalUnifiedService {
           queryParameters: {'status': 'submitted'},
         );
         if (response.statusCode == 200 && response.data != null) {
-          final List listRaw = response.data['data'] ?? response.data['proposals'] ?? [];
+          final data = response.data['data'];
+          List listRaw = [];
+          if (data is List) {
+            listRaw = data;
+          } else if (data is Map) {
+            listRaw = data['proposals'] ?? data['data'] ?? data['rows'] ?? [];
+          } else if (response.data['proposals'] is List) {
+            listRaw = response.data['proposals'];
+          }
           items.addAll(listRaw.map((e) => UnifiedApprovalItem.fromDestructionProposal(e)));
         }
-      } catch (_) {}
+      } catch (e) {
+        print('Error parsing DestructionProposal: \$e');
+      }
     }
 
     return items;
@@ -131,8 +190,6 @@ class ApprovalUnifiedService {
           ApiConfig.endpointDispositionComplete,
           data: {
             'disposisi_id': item.id,
-            'id_disposisi': item.id,
-            'catatan': noteText,
             'complete_note': noteText,
           },
         );

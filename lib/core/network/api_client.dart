@@ -42,14 +42,16 @@ class ApiClient {
           final jwtCredential = await SecureStorageService.getJwtCredential();
           final userData = await SecureStorageService.getUserData();
           final username = userData['username'];
-          final branchId = userData['branchId'];
 
-          final tokenToUse = (jwtCredential != null && jwtCredential.isNotEmpty)
-              ? jwtCredential
-              : accessToken;
+          // Only set Bearer token if Authorization header is not already set (e.g. Basic token for /auth/token)
+          if (!options.headers.containsKey(ApiConfig.headerAuth)) {
+            final tokenToUse = (jwtCredential != null && jwtCredential.isNotEmpty)
+                ? jwtCredential
+                : accessToken;
 
-          if (tokenToUse != null && tokenToUse.isNotEmpty) {
-            options.headers[ApiConfig.headerAuth] = 'Bearer $tokenToUse';
+            if (tokenToUse != null && tokenToUse.isNotEmpty) {
+              options.headers[ApiConfig.headerAuth] = 'Bearer $tokenToUse';
+            }
           }
 
           if (username != null && username.isNotEmpty) {
@@ -58,8 +60,12 @@ class ApiClient {
 
           options.headers[ApiConfig.headerTimestamp] = DateTime.now().toIso8601String();
 
-          if (branchId != null && branchId.isNotEmpty) {
-            options.headers[ApiConfig.headerFilterCabang] = branchId;
+          // Global Branch Switcher override (sama dengan Web: memuat cabang dan turunannya)
+          if (ApiConfig.selectedBranchId != null) {
+            options.headers[ApiConfig.headerFilterCabang] = ApiConfig.selectedBranchId.toString();
+          } else {
+            // Remove it if null so Superadmin can see all branches
+            options.headers.remove(ApiConfig.headerFilterCabang);
           }
 
           return handler.next(options);
@@ -71,19 +77,19 @@ class ApiClient {
     );
   }
 
-  Future<Response> get(String endpoint, {Map<String, dynamic>? queryParameters}) async {
-    return await dio.get(endpoint, queryParameters: queryParameters);
+  Future<Response> get(String endpoint, {Map<String, dynamic>? queryParameters, Options? options}) async {
+    return await dio.get(endpoint, queryParameters: queryParameters, options: options);
   }
 
-  Future<Response> post(String endpoint, {dynamic data, Map<String, dynamic>? queryParameters}) async {
-    return await dio.post(endpoint, data: data, queryParameters: queryParameters);
+  Future<Response> post(String endpoint, {dynamic data, Map<String, dynamic>? queryParameters, Options? options}) async {
+    return await dio.post(endpoint, data: data, queryParameters: queryParameters, options: options);
   }
 
-  Future<Response> put(String endpoint, {dynamic data}) async {
-    return await dio.put(endpoint, data: data);
+  Future<Response> put(String endpoint, {dynamic data, Options? options}) async {
+    return await dio.put(endpoint, data: data, options: options);
   }
 
-  Future<Response> delete(String endpoint, {dynamic data}) async {
-    return await dio.delete(endpoint, data: data);
+  Future<Response> delete(String endpoint, {dynamic data, Options? options}) async {
+    return await dio.delete(endpoint, data: data, options: options);
   }
 }

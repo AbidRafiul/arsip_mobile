@@ -56,7 +56,16 @@ class UnifiedApprovalProvider with ChangeNotifier {
         return true;
       }
     } catch (e) {
-      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      if (e.runtimeType.toString() == 'DioException') {
+        final dynamic responseData = (e as dynamic).response?.data;
+        if (responseData != null && responseData['message'] != null) {
+          _errorMessage = responseData['message'].toString();
+        } else {
+          _errorMessage = e.toString();
+        }
+      } else {
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -75,7 +84,16 @@ class UnifiedApprovalProvider with ChangeNotifier {
         return true;
       }
     } catch (e) {
-      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      if (e.runtimeType.toString() == 'DioException') {
+        final dynamic responseData = (e as dynamic).response?.data;
+        if (responseData != null && responseData['message'] != null) {
+          _errorMessage = responseData['message'].toString();
+        } else {
+          _errorMessage = e.toString();
+        }
+      } else {
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
+      }
     } finally {
       _isLoading = false;
       notifyListeners();

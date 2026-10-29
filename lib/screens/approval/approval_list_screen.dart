@@ -3,8 +3,11 @@ import 'package:provider/provider.dart';
 import '../../config/app_theme.dart';
 import '../../config/app_widgets.dart';
 import '../../models/unified_approval_model.dart';
+import '../../models/disposition_model.dart';
 import '../../providers/unified_approval_provider.dart';
 import 'approval_unified_detail_screen.dart';
+import '../disposition/disposition_detail_screen.dart';
+import '../../providers/branch_provider.dart';
 
 class ApprovalListScreen extends StatefulWidget {
   const ApprovalListScreen({Key? key}) : super(key: key);
@@ -44,7 +47,21 @@ class _ApprovalListScreenState extends State<ApprovalListScreen> {
     return Scaffold(
       backgroundColor: AppTheme.surfaceSoft,
       appBar: AppBar(
-        title: const Text('Pusat Approval'),
+        title: Consumer<BranchProvider>(
+          builder: (context, branchProv, _) {
+            final sel = branchProv.selectedBranch;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Pusat Approval', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                Text(
+                  sel != null ? 'Kantor: ${sel.namaCabang}' : 'Semua Kantor Cabang',
+                  style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary, fontWeight: FontWeight.normal),
+                ),
+              ],
+            );
+          },
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
@@ -180,10 +197,20 @@ class _ApprovalListScreenState extends State<ApprovalListScreen> {
     final categoryColor = _getCategoryColor(item.category);
 
     return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => ApprovalUnifiedDetailScreen(item: item)),
-      ),
+      onTap: () {
+        if (item.category == ApprovalCategory.disposition) {
+          final dispositionItem = DispositionItemModel.fromJson(item.rawData);
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => DispositionDetailScreen(item: dispositionItem)),
+          );
+        } else {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => ApprovalUnifiedDetailScreen(item: item)),
+          );
+        }
+      },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
@@ -234,8 +261,57 @@ class _ApprovalListScreenState extends State<ApprovalListScreen> {
                               style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: categoryColor),
                             ),
                           ),
+                          // Badge Cabang
+                          Builder(
+                            builder: (context) {
+                              String? branch = item.branchName;
+                              if (branch == null && item.branchId != null) {
+                                final bp = Provider.of<BranchProvider>(context, listen: false);
+                                branch = bp.findBranchById(item.branchId)?.namaCabang;
+                              }
+                              if (branch == null) {
+                                final bp = Provider.of<BranchProvider>(context, listen: false);
+                                if (bp.selectedBranch != null) {
+                                  branch = bp.selectedBranch!.namaCabang;
+                                }
+                              }
+                              if (branch == null || branch.isEmpty) return const SizedBox.shrink();
+
+                              return Padding(
+                                padding: const EdgeInsets.only(left: 6),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade50,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: AppTheme.primaryBlue.withValues(alpha: 0.3), width: 0.6),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.location_city_rounded, size: 10, color: AppTheme.primaryBlue),
+                                      const SizedBox(width: 3),
+                                      ConstrainedBox(
+                                        constraints: const BoxConstraints(maxWidth: 110),
+                                        child: Text(
+                                          branch,
+                                          style: const TextStyle(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTheme.primaryBlue,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                           const Spacer(),
-                          StatusBadge.fromString('Menunggu'),
+                          StatusBadge.fromString(item.status),
                         ],
                       ),
                       const SizedBox(height: 8),

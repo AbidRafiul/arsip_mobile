@@ -19,9 +19,12 @@ class DispositionService {
       data: payload,
     );
 
-    if (response.statusCode == 200 && response.data != null && response.data['status'] == true) {
-      final List listRaw = response.data['data'] ?? [];
-      return listRaw.map((e) => DispositionItemModel.fromJson(e)).toList();
+    if (response.statusCode == 200 && response.data != null) {
+      final status = response.data['status'];
+      if (status == true || status == '00' || status == 'success') {
+        final List listRaw = response.data['data'] ?? [];
+        return listRaw.map((e) => DispositionItemModel.fromJson(e)).toList();
+      }
     }
     return [];
   }
@@ -32,15 +35,15 @@ class DispositionService {
       ApiConfig.endpointDispositionProcess,
       data: {
         'disposisi_id': disposisiSuratId,
-        'disposisi_surat_id': disposisiSuratId,
-        'id_disposisi': disposisiSuratId,
-        'catatan': note,
         'process_note': note,
-        'catatan_disposisi': note,
       },
     );
 
-    return response.statusCode == 200 && response.data != null && response.data['status'] == true;
+    if (response.statusCode == 200 && response.data != null) {
+      final status = response.data['status'];
+      return status == true || status == '00' || status == 'success';
+    }
+    return false;
   }
 
   Future<bool> completeDisposition(int disposisiSuratId, {String? catatan}) async {
@@ -49,14 +52,14 @@ class DispositionService {
       ApiConfig.endpointDispositionComplete,
       data: {
         'disposisi_id': disposisiSuratId,
-        'disposisi_surat_id': disposisiSuratId,
-        'id_disposisi': disposisiSuratId,
-        'catatan': note,
         'complete_note': note,
-        'catatan_disposisi': note,
       },
     );
 
-    return response.statusCode == 200 && response.data != null && response.data['status'] == true;
+    if (response.statusCode == 200 && response.data != null) {
+      final status = response.data['status'];
+      return status == true || status == '00' || status == 'success';
+    }
+    return false;
   }
 }

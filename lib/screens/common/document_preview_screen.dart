@@ -11,6 +11,7 @@ class DocumentPreviewScreen extends StatefulWidget {
   final String? filePath;
   final String? mimeType;
   final String? endpoint; // Custom download endpoint override
+  final String method; // HTTP Method: 'GET' or 'POST'
   final Map<String, dynamic>? queryParameters;
 
   const DocumentPreviewScreen({
@@ -20,6 +21,7 @@ class DocumentPreviewScreen extends StatefulWidget {
     this.filePath,
     this.mimeType,
     this.endpoint,
+    this.method = 'GET',
     this.queryParameters,
   }) : super(key: key);
 
@@ -64,14 +66,26 @@ class _DocumentPreviewScreenState extends State<DocumentPreviewScreen> {
         params['path_file'] = widget.filePath;
       }
 
-      final response = await apiClient.dio.get<List<int>>(
-        targetEndpoint,
-        queryParameters: params.isEmpty ? null : params,
-        options: Options(
-          responseType: ResponseType.bytes,
-          followRedirects: true,
-        ),
+      Response<List<int>> response;
+      
+      final options = Options(
+        responseType: ResponseType.bytes,
+        followRedirects: true,
       );
+
+      if (widget.method.toUpperCase() == 'POST') {
+        response = await apiClient.dio.post<List<int>>(
+          targetEndpoint,
+          data: params.isEmpty ? null : params,
+          options: options,
+        );
+      } else {
+        response = await apiClient.dio.get<List<int>>(
+          targetEndpoint,
+          queryParameters: params.isEmpty ? null : params,
+          options: options,
+        );
+      }
 
       if (response.statusCode == 200 && response.data != null) {
         final contentType = response.headers.value('content-type');
@@ -98,6 +112,10 @@ class _DocumentPreviewScreenState extends State<DocumentPreviewScreen> {
           }
         }
       } catch (_) {}
+      
+      // Append URL for debugging
+      msg = '$msg\n\nEndpoint: ${dioErr.requestOptions.path}';
+      
       setState(() {
         _isLoading = false;
         _errorMessage = msg;

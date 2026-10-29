@@ -133,4 +133,28 @@ class SecureStorageService {
       debugPrint("SecureStorage clear error: $e");
     }
   }
+
+  // Generic Settings (e.g. Notifications)
+  static Future<void> saveSetting(String key, String value) async {
+    _memCache[key] = value;
+    try {
+      await _storage.write(key: key, value: value);
+    } catch (e) {
+      debugPrint("SecureStorage write setting error: $e");
+    }
+  }
+
+  static Future<String?> getSetting(String key) async {
+    if (_memCache.containsKey(key)) {
+      return _memCache[key];
+    }
+    try {
+      final val = await _storage.read(key: key);
+      if (val != null) _memCache[key] = val;
+      return val;
+    } catch (e) {
+      debugPrint("SecureStorage read setting error: $e");
+      return _memCache[key];
+    }
+  }
 }

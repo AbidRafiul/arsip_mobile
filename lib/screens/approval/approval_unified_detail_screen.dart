@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_arsip_mobile/core/network/api_client.dart';
 import 'package:provider/provider.dart';
 import '../../config/app_theme.dart';
 import '../../models/unified_approval_model.dart';
 import '../../providers/unified_approval_provider.dart';
+import '../../core/utils/date_formatter.dart';
 import '../common/document_preview_screen.dart';
 
 class ApprovalUnifiedDetailScreen extends StatefulWidget {
@@ -23,12 +25,13 @@ class _ApprovalUnifiedDetailScreenState extends State<ApprovalUnifiedDetailScree
     super.dispose();
   }
 
-  void _openDocumentPreview(UnifiedApprovalItem item) {
+  void _openDocumentPreview(UnifiedApprovalItem item) async {
     final raw = item.rawData;
-    final filePath = raw['path_file'] ?? raw['file_path'] ?? raw['path_file_versi'] ?? raw['path'];
+    String? filePath = raw['path_file'] ?? raw['file_path'] ?? raw['path_file_versi'] ?? raw['path'];
     final fileName = raw['nama_file'] ?? raw['nama_dokumen'] ?? raw['kode_dokumen'] ?? '${item.category.code}_${item.id}.pdf';
 
     String endpoint = '/correspondence/outgoing-file-download';
+    String method = 'GET';
     Map<String, dynamic> params = {};
 
     if (item.category == ApprovalCategory.outgoingLetter) {
@@ -36,7 +39,36 @@ class _ApprovalUnifiedDetailScreenState extends State<ApprovalUnifiedDetailScree
       params['id_surat_keluar'] = item.id;
     } else if (item.category == ApprovalCategory.disposition) {
       endpoint = '/correspondence/incoming-file-download';
-      params['file_surat_masuk_id'] = raw['file_surat_masuk_id'] ?? raw['id_surat_masuk'] ?? item.id;
+      method = 'POST';
+      
+      int? fileId = raw['file_surat_masuk_id'] != null ? int.tryParse(raw['file_surat_masuk_id'].toString()) : null;
+      int? suratMasukId = raw['surat_masuk_id'] != null ? int.tryParse(raw['surat_masuk_id'].toString()) : 
+                          (raw['id_surat_masuk'] != null ? int.tryParse(raw['id_surat_masuk'].toString()) : null);
+      
+      if ((fileId == null || fileId == 0) && suratMasukId != null && suratMasukId != 0) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (c) => const Center(child: CircularProgressIndicator()),
+        );
+        try {
+          final apiClient = ApiClient();
+          final detailRes = await apiClient.post('/correspondence/incoming-letter-detail', data: {'surat_masuk_id': suratMasukId});
+          if (!mounted) return;
+          Navigator.pop(context); // close loading
+          if (detailRes.statusCode == 200 && detailRes.data != null) {
+            final files = detailRes.data['data']?['files'] as List?;
+            if (files != null && files.isNotEmpty) {
+              fileId = files.first['file_surat_masuk_id'] != null ? int.tryParse(files.first['file_surat_masuk_id'].toString()) : null;
+              filePath = files.first['path_file']?.toString() ?? filePath;
+            }
+          }
+        } catch (_) {
+          if (mounted) Navigator.pop(context); // close loading on error
+        }
+      }
+      
+      params['file_surat_masuk_id'] = fileId ?? suratMasukId ?? item.id;
       if (filePath != null) params['path_file'] = filePath;
     } else if (item.category == ApprovalCategory.documentVersion) {
       endpoint = '/arsip-dokumen/version/download';
@@ -56,6 +88,7 @@ class _ApprovalUnifiedDetailScreenState extends State<ApprovalUnifiedDetailScree
       }
     }
 
+    if (!mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -64,6 +97,7 @@ class _ApprovalUnifiedDetailScreenState extends State<ApprovalUnifiedDetailScree
           fileName: fileName.toString(),
           filePath: filePath?.toString(),
           endpoint: endpoint,
+          method: method,
           queryParameters: params,
         ),
       ),
@@ -224,7 +258,7 @@ class _ApprovalUnifiedDetailScreenState extends State<ApprovalUnifiedDetailScree
                   children: [
                     _buildDetailRow('Status Persetujuan', item.status.toUpperCase(), isBadge: true),
                     const Divider(),
-                    _buildDetailRow('Tanggal Pengajuan', item.date),
+                    _buildDetailRow('Tanggal Pengajuan', DateFormatter.formatIndonesianDateTime(item.date)),
                     const Divider(),
                     _buildDetailRow('Diusulkan / Dibuat Oleh', item.requesterName ?? '-'),
                     const Divider(),
@@ -239,10 +273,10 @@ class _ApprovalUnifiedDetailScreenState extends State<ApprovalUnifiedDetailScree
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.primaryColor,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
                         ),
-                        icon: const Icon(Icons.picture_as_pdf_outlined, color: Colors.white),
-                        label: const Text('PRINJAU BERKAS DOKUMEN', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        icon: const Icon(Icons.picture_as_pdf_outlined, color: Colors.white, size: 20),
+                        label: const Text('PRINJAU BERKAS DOKUMEN', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
                         onPressed: () => _openDocumentPreview(item),
                       ),
                     ),
@@ -260,11 +294,11 @@ class _ApprovalUnifiedDetailScreenState extends State<ApprovalUnifiedDetailScree
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.dangerColor,
                       side: BorderSide(color: AppTheme.dangerColor),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     onPressed: () => _showConfirmDialog(isApprove: false),
-                    icon: const Icon(Icons.cancel_outlined),
-                    label: const Text('TOLAK'),
+                    icon: const Icon(Icons.cancel_outlined, size: 20),
+                    label: const Text('TOLAK', style: TextStyle(fontSize: 13)),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -272,11 +306,11 @@ class _ApprovalUnifiedDetailScreenState extends State<ApprovalUnifiedDetailScree
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.successColor,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     onPressed: () => _showConfirmDialog(isApprove: true),
-                    icon: const Icon(Icons.check_circle_outline, color: Colors.white),
-                    label: const Text('SETUJUI', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    icon: const Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
+                    label: const Text('SETUJUI', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
                   ),
                 ),
               ],
@@ -319,7 +353,7 @@ class _ApprovalUnifiedDetailScreenState extends State<ApprovalUnifiedDetailScree
                 : Text(
                     value,
                     textAlign: TextAlign.end,
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
                   ),
           ),
         ],
